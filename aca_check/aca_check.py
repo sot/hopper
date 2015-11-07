@@ -9,7 +9,7 @@ from Quaternion import Quat
 logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
-COMMAND_ACTION_CLASSES = []
+CMD_ACTION_CLASSES = []
 
 
 class StateValue(object):
@@ -45,70 +45,70 @@ class SpacecraftState(object):
 SC = SpacecraftState()
 
 
-class CommandActionMeta(type):
+class CmdActionMeta(type):
     """
-    Simple metaclass to register CommandAction classes
+    Simple metaclass to register CmdAction classes
     """
     def __init__(cls, name, bases, dct):
-        super(CommandActionMeta, cls).__init__(name, bases, dct)
-        if 'command_trigger' in dct:
-            COMMAND_ACTION_CLASSES.append(cls)
+        super(CmdActionMeta, cls).__init__(name, bases, dct)
+        if 'cmd_trigger' in dct:
+            CMD_ACTION_CLASSES.append(cls)
 
 
-class CommandAction(object):
-    __metaclass__ = CommandActionMeta
+class CmdAction(object):
+    __metaclass__ = CmdActionMeta
 
     @classmethod
     def action(cls):
         raise NotImplemented()
 
     @classmethod
-    def trigger(cls, command):
-        ok = all(command.get(key) == val
-                 for key, val in cls.command_trigger.iteritems())
+    def trigger(cls, cmd):
+        ok = all(cmd.get(key) == val
+                 for key, val in cls.cmd_trigger.iteritems())
         return ok
 
 
-class DateCmd(CommandAction):
+class DateCmd(CmdAction):
     """
-    Set spacecraft date.  This must be the first command action defined.
+    Set spacecraft date.  This must be the first cmd action defined.
     """
-    command_trigger = True
+    cmd_trigger = True
 
     @classmethod
-    def trigger(cls, command):
+    def trigger(cls, cmd):
         return True
 
     @classmethod
-    def action(cls, command):
-        SC.date = command['date']
+    def action(cls, cmd):
+        SC.date = cmd['date']
 
 
-class ObsidCmd(CommandAction):
-    command_trigger = {'type': 'MP_OBSID'}
+class ObsidCmd(CmdAction):
+    cmd_trigger = {'type': 'MP_OBSID'}
 
     @classmethod
-    def action(cls, command):
-        SC.obsid = command['id']
+    def action(cls, cmd):
+        SC.obsid = cmd['id']
 
 
-class TargQAttCmd(CommandAction):
+class TargQAttCmd(CmdAction):
     """
     2009:033:01:18:19.704 |  8221758 0 | MP_TARGQUAT
     | TLMSID= AOUPTARQ, CMDS= 8,
     Q1= -7.34527862e-01, Q2=  1.58017489e-01,
     Q3=  3.72958462e-01, Q4=  5.44427478e-01, SCS= 130, STEP= 1542
     """
-    command_trigger = {'tlmsid': 'AOUPTARQ'}
+    cmd_trigger = {'tlmsid': 'AOUPTARQ'}
 
     @classmethod
-    def action(cls, command):
-        SC.targ_q_att = Quat([command['q1'], command['q2'], command['q3'], command['q4']])
+    def action(cls, cmd):
+        SC.targ_q_att = Quat([cmd['q1'], cmd['q2'], cmd['q3'], cmd['q4']])
 
 
-commands = parse_cm.read_backstop_as_list('test.backstop')
+cmds = parse_cm.read_backstop_as_list('test.backstop')
 
-for command in commands:
-    for command_action in COMMAND_ACTION_CLASSES:
-        if command_action.trigger(command):
-            command_action.action(command)
+for cmd in cmds:
+    for cmd_action in CMD_ACTION_CLASSES:
+        if cmd_action.trigger(cmd):
+            cmd_action.action(cmd)
