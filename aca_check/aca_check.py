@@ -13,11 +13,12 @@ CMD_ACTION_CLASSES = []
 
 
 class StateValue(object):
-    def __init__(self, name, log=True):
+    def __init__(self, name, init_func=None, log=True):
         self.name = name
         self.value = None
         self.values = []
         self.log = log
+        self.init_func = init_func
 
     def __get__(self, instance, cls):
         return self.value
@@ -25,6 +26,8 @@ class StateValue(object):
     def __set__(self, instance, value):
         if self.log:
             logger.info('{} {}={}'.format(instance.date, self.name, value))
+        if self.init_func:
+            value = self.init_func(value)
         self.value = value
         self.values.append({'value': value, 'date': instance.date})
 
@@ -32,8 +35,8 @@ class StateValue(object):
 class SpacecraftState(object):
     date = StateValue('date', log=False)
     obsid = StateValue('obsid')
-    q_att = StateValue('q_att')
-    targ_q_att = StateValue('targ_q_att')
+    q_att = StateValue('q_att', init_func=Quat)
+    targ_q_att = StateValue('targ_q_att', init_func=Quat)
 
     def __getattr__(self, attr):
         if attr.endswith('s') and attr[:-1] in self.__class__.__dict__:
@@ -103,11 +106,21 @@ class TargQAttCmd(CmdAction):
 
     @classmethod
     def action(cls, cmd):
-        SC.targ_q_att = Quat([cmd['q1'], cmd['q2'], cmd['q3'], cmd['q4']])
+        SC.targ_q_att = cmd['q1'], cmd['q2'], cmd['q3'], cmd['q4']
 
+
+def set_initial_state():
+    """
+    Set the initial state of SC.  For initial testing just use
+    stub values.
+    """
+    SC.q_att = 0, 0, 0
+    SC.targ_q_att = 0, 0, 0
+    SC.obsid = 0
+
+set_initial_state()
 
 cmds = parse_cm.read_backstop_as_list('test.backstop')
-
 for cmd in cmds:
     for cmd_action in CMD_ACTION_CLASSES:
         if cmd_action.trigger(cmd):
