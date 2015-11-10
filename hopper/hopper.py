@@ -54,6 +54,7 @@ class SpacecraftState(object):
     obsid = StateValue('obsid')
     pitch = StateValue('pitch')
     pcad_mode = StateValue('pcad_mode')
+    auto_transition = StateValue('auto_transition')
     maneuver = StateValue('maneuver')
     q_att = StateValue('q_att', init_func=Quat)
     targ_q_att = StateValue('targ_q_att', init_func=Quat)
@@ -332,9 +333,17 @@ class ManeuverCmd(CmdAction):
         maneuver['final']['obsid'] = SC.obsid
         SC.maneuver = cmd['maneuver']
 
+
+class NPMCmd(CmdAction):
+    cmd_trigger = {'tlmsid': 'add_npm_transition'}
+
+    @classmethod
+    def action(cls, cmd):
         if SC.is_obs_req():
             SC.add_cmd({'date': cmd['date'],
                         'tlmsid': 'check_obsreq_target_from_pcad'})
+
+
 
 
 class StartManeuverCmd(CmdAction):
@@ -366,6 +375,11 @@ class StartManeuverCmd(CmdAction):
         SC.add_cmd({'date': maneuver['final']['date'],
                     'tlmsid': 'add_maneuver',
                     'maneuver': maneuver})
+        if SC.auto_transition:
+            SC.add_cmd({'date': maneuver['final']['date'],
+                        'tlmsid': 'add_npm_transition',
+                        'pcad_mode': 'NPNT'})
+
 
 
 class NMMMode(FixedStateValueCmd):
@@ -380,6 +394,21 @@ class NPNTMode(FixedStateValueCmd):
                    'tlmsid': 'AONPMODE'}
     state_name = 'pcad_mode'
     state_value = 'NPNT'
+
+
+class DisableAutoTransition(FixedStateValueCmd):
+    cmd_trigger = {'type': 'COMMAND_SW',
+                   'tlmsid': 'AONM2NPD'}
+    state_name = 'auto_transition'
+    state_value = False
+
+
+class EnableAutoTransition(FixedStateValueCmd):
+    cmd_trigger = {'type': 'COMMAND_SW',
+                   'tlmsid': 'AONM2NPE'}
+    state_name = 'auto_transition'
+    state_value = True
+
 
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
