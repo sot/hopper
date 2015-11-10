@@ -3,6 +3,7 @@
 from __future__ import print_function, division, absolute_import
 
 from collections import defaultdict
+import os
 
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -40,7 +41,7 @@ class StateValue(object):
         date = instance.curr_cmd['date'] if instance.curr_cmd else '2000:001:00:00:00.000'
 
         if self.log:
-            logger.info('{} {}={}'.format(date, self.name, value))
+            logger.debug('{} {}={}'.format(date, self.name, value))
         if self.init_func:
             value = self.init_func(value)
         self.value = value
@@ -266,7 +267,8 @@ class CheckObsreqTargetFromPcad(CmdAction):
     @classmethod
     def action(cls, cmd):
         obsid = SC.obsid
-        check = {'name': cls.__name__}
+        check = {'name': cls.__name__,
+                 'date': cmd['date']}
 
         # TODO refactor to set variables ok, skip, message throughout then `check` at end
 
@@ -380,7 +382,8 @@ class NPNTMode(FixedStateValueCmd):
     state_value = 'NPNT'
 
 
-def check_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None):
+def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
+             initial_state=None):
     global SC
 
     cmds = parse_cm.read_backstop_as_list(backstop_file)
@@ -392,11 +395,13 @@ def check_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None)
     else:
         characteristics = None
 
-    SC = SpacecraftState(cmds, obsreqs, characteristics)
+    SC = SpacecraftState(cmds, obsreqs, characteristics, initial_state)
 
+    # Run through load commands and do checks
     for cmd in SC.iter_cmds():
         for cmd_action in CMD_ACTION_CLASSES:
             if cmd_action.trigger(cmd):
                 cmd_action.action(cmd)
 
     SC.checks = dict(SC.checks)
+    return SC

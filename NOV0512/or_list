@@ -1,0 +1,362 @@
+HDR,HDR_ID=NOV0512_A
+
+BEGIN_COMMENT,ID=49999
+
+  ** WARNING: This file automatically generated 
+  ** by Matlab OR Viewer. 26-Oct-2012 17:51:38
+  ** 
+  ** Some OR parameters may have been modified.
+
+END_COMMENT
+
+BEGIN_COMMENT,ID=49999
+
+This is the OR list for the week of NOV 05, 2012.
+
+SOT Mission Planner:  Jerica Green
+
+FOT Mission Planner:  John Scott    
+
+Please email all notes and comments to Jerica Green (jgreen@head.cfa.harvard.edu).
+
+Version list:
+_00 : as extracted using MP software
+_01 : LTS OR released, October 17 2012
+_02 : Final OR list, released October 26 2012
+      changes: added pool targets 13371, 14000, 13326 and 13874
+	       added split obsid 15578 for obsid 13458; total time:
+	       186.58ks
+	       added split obsid 15579 for obsid 14349; total time:
+	       45ks
+	       added split obsid 15580 for obsid 14221; total time:
+	       50ks
+
+
+**************************************************************
+
+For this week, please note:
+
+Priority Definitions
+---------------------------------
+- 4 for constrained observations that absolutely must be done in this load
+- 5 for time constrained or otherwise urgent targets that should be done in this load if at all possible
+- 6 for objects from the LTS without time constraints 
+
+Comments
+---------------------------------
+Obsid 14221 and 15580: Pictor A Jet (37ks and 12ks) Roll preference of 345 +/- 55
+      degrees. +180 is not ok. Midweek roll is 36.471 +/- 10 so this
+      preference can be met all week. However, if this observation is
+      scheduled at the beginning of the week an off nominal roll
+      angle will be required.
+      Uninterrupt request.
+Obsid 13871: NGC 3341 (50ks) Target goes into moon block starting from
+      DOY 311 and ending DOY 317. Please schedule at the beginning of the
+      week or at the end of the week.  
+Obsid 13963: RXJ1131-1231 (15ks) Target is in sun block the beginning
+      of the week, please schedule after DOY 310. 
+      Monitoring constraint follows Obsid 13962 by 180-270 days, met
+      all week.
+      Uninterrupt request.
+Obsid 14000: G12-34 (15ks) Needs a stable focal plane. 
+
+Low Visibility targets:
+
+Obsid	Day of year for low vis
+------------------------------
+14000 	314m, 315m
+13963 	309s, 310s
+13871 	313m, 314m
+
+
+Pitch/Time Summary
+---------------------------------
+Total time in OR list : 470.00 ksec
+Total time at PSMC pitch angle (46-56) : 130.00 ksec
+Percent of total : 27.660%
+Total time at bad pitch angle (70-127) : 98.00 ksec
+Percent of total : 20.851%
+Total time at good pitch angle (56-70,127-145) : 50.00 ksec
+Percent of total : 10.638%
+Total time at cold pitch angle (145-156) : 192.00 ksec
+Percent of total : 40.851%
+Total time in P-line region (156-170) : 0.00 ksec
+Percent of total : 0.000%
+Total time at forbidden pitch angle (0-46,170-180) : 0.00 ksec
+Percent of total : 0.000%
+
+Total time at priority 4, 5 or 6 : 440.00 ksec
+Total time at bad pitch angle (70-127) : 95.00 ksec
+Percent of total : 21.591%
+
+Note: Pitch totals are calculated based on a midweek roll.
+
+
+
+
+			Target Summary: NOV0512
+
+			  pitch angle/roll
+			    (day of year)
+    obsid  time  P  U      310         316         target          PI RC OC FP PD
+    -----  ----  -  -  ----------  ----------  ----------  ---------- -- -- -- --
+    13458   115  5  N   153/252.0   148/260.2   Abell 115      forman  5  1  N  N
+    13871    50  5  N     62/69.4     68/69.1     NGC3341     Bianchi  6  2  N  N
+*** 13963    15  5  N     46/80.1     51/77.5  RXJ1131-12         Dai  1  0  N   
+ ** 14221    37  5  N    108/40.2    109/33.9  Pictor A J  Hardcastle  6  4  N  N
+ ** 14349    25  5  N     94/50.8     95/44.9  PLCKG266.6    Mazzotta  5  1  N  N
+    15578    65  5  N   153/252.0   148/260.2   Abell 115      forman  5  1  N  N
+ ** 15579    20  5  N     94/50.8     95/44.9  PLCKG266.6    Mazzotta  5  1  N  N
+ ** 15580    13  5  N    108/40.2    109/33.9  Pictor A J  Hardcastle  6  4  N  N
+    13907   100  6  N    49/344.0    50/351.8  IRAS F1530  Hlavacek-L  5  1  N  N
+ ** 13326     1  9  N     70/64.5     76/65.6  SDSS J1034     Garmire  3  0  N  N
+ ** 13371     1  9  N     70/63.4     76/64.7  SDSS J1037     Garmire  3  0  N  N
+    13874    12  9  N   147/139.5   151/148.0       3c103     Massaro  4  2  N  N
+    14000    15  9  N     47/69.4     53/68.9      G12-34      Ponman  5  1  Y  N
+
+*** = forbidden zone (0-46,170-180)
+ ** = bad pitch (70-127)
+  * = pline restrictions (156-170)
+
+
+Time Summary
+---------------------------------
+
+Priority	# of Obs	Time (seconds)
+5		8		   340000.00
+6		1		   100000.00
+9		4		    30000.00
+
+HRC		0		        0.00
+ACIS		13		   470000.00
+
+TOTAL		13		   470000.00
+
+
+
+Targets Not Approved for Flight
+---------------------------------
+Obsids 15578, 15579 and 15580 are splits of 13458, 14349 and 14221
+respectively. These observations are all scheduled for the same week
+so there is no need for approval. 
+
+Approval Status
+---------------------------------
+
+702533 13326      SDSS J1034+1912       Brandt ACIS-S NONE TE_0076A  brad  10/03/11
+702578 13371      SDSS J1037+2135       Brandt ACIS-S NONE TE_0076A  brad  10/03/11
+801102 13458            Abell 115       forman ACIS-I NONE TE_006E6  zhao  01/18/12
+702596 13871              NGC3341      Bianchi ACIS-S NONE TE_0088E  brad  12/13/11
+702599 13874                3c103      Massaro ACIS-S NONE TE_006CC  brad  10/07/11
+702632 13907     IRAS F15307+3252 Hlavacek-Lar ACIS-S NONE TE_004F4  brad  05/25/12
+702685 13963         RXJ1131-1231          Dai ACIS-S NONE TE_0091A  brad  03/19/12
+801180 14000               G12-34       Ponman ACIS-I NONE TE_00758  zhao  10/07/11
+702717 14221         Pictor A Jet   Hardcastle ACIS-S NONE TE_007E2  brad  10/15/12
+801197 14349      PLCKG266.6-27.3     Mazzotta ACIS-I NONE TE_00458  zhao  02/01/12
+801102 15578            Abell 115       forman ACIS-I NONE TE_006E6  *** not approved for flight ***
+801197 15579      PLCKG266.6-27.3     Mazzotta ACIS-I NONE TE_00458  *** not approved for flight ***
+702717 15580         Pictor A Jet   Hardcastle ACIS-S NONE TE_007E2  *** not approved for flight ***
+
+END_COMMENT
+
+BEGIN_COMMENT,ID=49999
+***OR QUICK LOOK START
+   NOTE: This comment is automatically regenerated when using the 
+         mp_orf_gui or the mp_orf_file applications.
+   
+                                                            Req.  Opt.  Drop
+SeqNbr    ObsId     Target Name              Observer       Chip  Chip  Chip
+-------------------------------------------------------------------------------
+801102    13458     Abell 115                forman            5     1     1
+702596    13871     NGC3341                  Bianchi           6     2     0
+702685    13963     RXJ1131-1231             Dai               1     0     0
+702717    14221     Pictor A Jet             Hardcastle        6     4     0
+801197    14349     PLCKG266.6-27.3          Mazzotta          5     1     0
+801102    15578     Abell 115                forman            5     1     1
+801197    15579     PLCKG266.6-27.3          Mazzotta          5     1     0
+702717    15580     Pictor A Jet             Hardcastle        6     4     0
+702632    13907     IRAS F15307+3252         Hlavacek-Larrondo   5     1     0
+702533    13326     SDSS J1034+1912          Brandt            3     0     0
+702578    13371     SDSS J1037+2135          Brandt            3     0     0
+702599    13874     3c103                    Massaro           4     2     0
+801180    14000     G12-34                   Ponman            5     1     0
+***OR QUICK LOOK END
+END_COMMENT
+
+BEGIN_COMMENT, ID=13458
+Remarks:
+The target is a large extended source and we will adjust the pointing when the 
+roll is determined. 
+PI: good for rolls from 250 to 270
+END_COMMENT
+OBS,
+ ID=13458,TARGET=(14.015458,26.381681,{Abell 115}),
+ DURATION=(110000.0, 110000.0, 120000.0),
+ PRIORITY=5,SI=ACIS-I,GRATING=NONE,SI_MODE=TE_006E6,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(-0.011667,0.050000),SIM_OFFSET=(1989),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,105000.000000),PRECEDING=(I3458),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(255.0)
+
+BEGIN_COMMENT, ID=14221
+Roll Preferences exist for observation.
+  ROLL=(345.000000,55.000000)
+Remarks:
+The existing observations show that Pic A's jet is variable on timescales of 
+years. Only a long-term project can constrain the properties of the variable 
+emission regions on these timescales, and so we have requested a MCOP. We would 
+prefer these observations to be scheduled as two blocks of 50 ks each, spaced 
+by a timescale of the order of months in each of the three years of the 
+program. Detailed timings are not critical to the science. 
+END_COMMENT
+OBS,
+ ID=14221,TARGET=(79.933333,-45.775556,{Pictor A Jet}),
+ DURATION=(38000.0),
+ PRIORITY=5,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_007E2,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,33300.000000),PRECEDING=(T_X31),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(36.0)
+
+BEGIN_COMMENT, ID=13963
+NOTE: The PRECEDING=(13962,180:00:00:00.000,270:00:00:00.000) parameter has
+been removed from this OR because there is no OR with an ID=13962
+in this OR list.
+Remarks:
+Visibility windows are (basically) January-July, November-December. 
+Goal is to obtain one 15 ksec observation in each window. The source flux 
+listed 
+is the average total flux of the four images. See text for a discussion of the 
+fluxes of the individual images.
+END_COMMENT
+OBS,
+ ID=13963,TARGET=(172.965000,-12.532500,{RXJ1131-1231}),
+ DURATION=(16000.0),
+ PRIORITY=5,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_0091A,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,13500.000000),PRECEDING=(14221),MIN_ACQ=1,MIN_GUIDE=1
+
+OBS,
+ ID=13371,TARGET=(159.376250,21.592028,{SDSS J1037+2135}),
+ DURATION=(1500.0),
+ PRIORITY=9,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_0076A,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,1500.000000),PRECEDING=(13963),MIN_ACQ=1,MIN_GUIDE=1
+
+OBS,
+ ID=13907,TARGET=(233.183333,32.713056,{IRAS F15307+3252}),
+ DURATION=(98200.0),
+ PRIORITY=6,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_004F4,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,90000.000000),PRECEDING=(13371),MIN_ACQ=1,MIN_GUIDE=1
+
+OBS,
+ ID=14000,TARGET=(174.910000,-1.100000,{G12-34}),
+ DURATION=(15000.0),
+ PRIORITY=9,SI=ACIS-I,GRATING=NONE,SI_MODE=TE_00758,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(-0.003333,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,13500.000000),PRECEDING=(13907),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(73.061890)
+
+BEGIN_COMMENT, ID=15580
+Roll Preferences exist for observation.
+  ROLL=(345.000000,55.000000)
+Remarks:
+The existing observations show that Pic A's jet is variable on timescales of 
+years. Only a long-term project can constrain the properties of the variable 
+emission regions on these timescales, and so we have requested a MCOP. We would 
+prefer these observations to be scheduled as two blocks of 50 ks each, spaced 
+by a timescale of the order of months in each of the three years of the 
+program. Detailed timings are not critical to the science. 
+END_COMMENT
+OBS,
+ ID=15580,TARGET=(79.933333,-45.775556,{Pictor A Jet}),
+ DURATION=(1300.0, 1300.0, 18000.0),
+ PRIORITY=5,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_007E2,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,11700.000000),PRECEDING=(14000),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(36.0)
+
+OBS,
+ ID=14349,TARGET=(93.966667,-57.781000,{PLCKG266.6-27.3}),
+ DURATION=(25000.0),
+ PRIORITY=5,SI=ACIS-I,GRATING=NONE,SI_MODE=TE_00458,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(-0.047500,-0.004167),SIM_OFFSET=(-3082),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,22500.000000),PRECEDING=(T_X32),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(45.5)
+
+#
+# CHANGED to create a failure
+# Was ID=13871,TARGET=(160.631250,5.043806,{NGC3341}),
+#
+
+OBS,
+ ID=13871,TARGET=(160.632250,5.043806,{NGC3341}),
+ DURATION=(50000.0),
+ PRIORITY=5,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_0088E,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,45000.000000),PRECEDING=(14349),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(71.11028)
+
+OBS,
+ ID=13326,TARGET=(158.582083,19.206139,{SDSS J1034+1912}),
+ DURATION=(1500.0),
+ PRIORITY=9,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_0076A,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,1500.000000),PRECEDING=(13871),MIN_ACQ=1,MIN_GUIDE=1
+
+OBS,
+ ID=13874,TARGET=(62.013750,43.006667,{3c103}),
+ DURATION=(12000.0),
+ PRIORITY=9,SI=ACIS-S,GRATING=NONE,SI_MODE=TE_006CC,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(0.002500,-0.004167),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,10800.000000),PRECEDING=(13326),MIN_ACQ=1,MIN_GUIDE=1
+
+BEGIN_COMMENT, ID=15578
+Remarks:
+The target is a large extended source and we will adjust the pointing when the 
+roll is determined. 
+PI: good for rolls from 250 to 270
+END_COMMENT
+OBS,
+ ID=15578,TARGET=(14.015458,26.381681,{Abell 115}),
+ DURATION=(67658.0),
+ PRIORITY=5,SI=ACIS-I,GRATING=NONE,SI_MODE=TE_006E6,ACA_MODE=DEFAULT,
+ TARGET_OFFSET=(-0.011667,0.050000),SIM_OFFSET=(1989),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,58500.000000),PRECEDING=(13874),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(255.0)
+
+OBS,
+ ID=15579,TARGET=(93.966667,-57.781000,{PLCKG266.6-27.3}),
+ DURATION=(2000.0, 2000.0, 23000.0),
+ PRIORITY=5,SI=ACIS-I,GRATING=NONE,SI_MODE=TE_00458,
+ ACA_MODE=DEFAULT,TARGET_OFFSET=(-0.047500,-0.004167),SIM_OFFSET=(-3082),
+ DITHER=(ON,0.002222,0.360000,0.000000,0.002222,0.509100,0.000000),
+ SEGMENT=(1,18000.000000),PRECEDING=(I5579),MIN_ACQ=1,MIN_GUIDE=1,
+ ROLL=(45.5)
+
+BEGIN_COMMENT,ID=49999
+Priority 5 targets.
+These are coordinated or in other ways constrained or urgent observations
+and should be scheduled this week if at all possible.
+END_COMMENT
+
+BEGIN_COMMENT,ID=49999
+    Priority 6 targets.
+    Unconstrained targets from the LTS.
+END_COMMENT
+
+BEGIN_COMMENT,ID=49999
+MPCAT File: /data/mpcrit1/mplogs/2012/NOV0512/scheduled/nov0512.mpc
+END_COMMENT
+
