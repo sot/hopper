@@ -2,6 +2,12 @@
 """
 from __future__ import print_function, division, absolute_import
 
+from collections import defaultdict
+
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+
+import chandra_aca
 import pyyaks.logger
 import parse_cm
 from Quaternion import Quat
@@ -12,6 +18,7 @@ logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 CMD_ACTION_CLASSES = []
+SC = None
 
 
 def as_date(time):
@@ -30,7 +37,7 @@ class StateValue(object):
         return self.value
 
     def __set__(self, instance, value):
-        date = SC.curr_cmd['date'] if SC.curr_cmd else '2000:001:00:00:00.000'
+        date = instance.curr_cmd['date'] if instance.curr_cmd else '2000:001:00:00:00.000'
 
         if self.log:
             logger.info('{} {}={}'.format(date, self.name, value))
@@ -41,15 +48,33 @@ class StateValue(object):
 
 
 class SpacecraftState(object):
-    cmds = []
-    i_curr_cmd = None
-    curr_cmd = None
+    simpos = StateValue('simpos')
+    simfa_pos = StateValue('simfa_pos')
     obsid = StateValue('obsid')
     pitch = StateValue('pitch')
     pcad_mode = StateValue('pcad_mode')
     maneuver = StateValue('maneuver')
     q_att = StateValue('q_att', init_func=Quat)
     targ_q_att = StateValue('targ_q_att', init_func=Quat)
+
+    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+        for attr in self.__class__.__dict__.values():
+            if isinstance(attr, StateValue):
+                attr.values = []
+        self.cmds = cmds
+        self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
+        self.characteristics = characteristics
+        self.i_curr_cmd = None
+        self.curr_cmd = None
+        self.checks = defaultdict(list)
+
+        if initial_state is None:
+            initial_state = {'q_att': (0, 0, 0),
+                             'targ_q_att': (0, 0, 0),
+                             'simpos': 0,
+                             'simfa_pos': 0}
+        for key, val in initial_state.items():
+            setattr(self, key, val)
 
     def __getattr__(self, attr):
         if attr.endswith('s') and attr[:-1] in self.__class__.__dict__:
@@ -99,8 +124,29 @@ class SpacecraftState(object):
         else:
             self.cmds.append(cmd)
 
+    def is_obs_req(self):
+        """
+        Is this an observation request (OR) obsid?  Can this test be better?
+        """
+        return self.obsid < 40000
 
-SC = SpacecraftState()
+    def set_initial_state(self):
+        """
+        Set the initial state of SC.  For initial testing just use
+        stub values.
+        """
+
+    @property
+    def detector(self):
+        for si, lims in (('HRC-S', (-400000.0, -85000.0)),
+                         ('HRC-I', (-85000.0, 0.0)),
+                         ('ACIS-S', (0.0, 83000.0)),
+                         ('ACIS-I', (83000.0, 400000.0))):
+            lim0, lim1 = lims
+            if lims[0] < self.simpos <= lims[1]:
+                return si
+        else:
+            raise ValueError('illegal value of sim_tsc: {}'.format(self.simpos))
 
 
 class CmdActionMeta(type):
@@ -144,6 +190,18 @@ class StateValueCmd(CmdAction):
         else:
             value = cmd[cls.cmd_key]
         setattr(SC, cls.state_name, value)
+
+
+class SimTransCmd(StateValueCmd):
+    cmd_trigger = {'type': 'SIMTRANS'}
+    state_name = 'simpos'
+    cmd_key = 'pos'
+
+
+class SimFocusCmd(StateValueCmd):
+    cmd_trigger = {'type': 'SIMFOCUS'}
+    state_name = 'simfa_pos'
+    cmd_key = 'pos'
 
 
 class FixedStateValueCmd(CmdAction):
@@ -197,6 +255,64 @@ class PitchCmd(StateValueCmd):
     cmd_key = 'pitch'
 
 
+class CheckObsreqTargetFromPcad(CmdAction):
+    """
+    For science observations check that the expected target attitude
+    (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
+    the OR target attitude.
+    """
+    cmd_trigger = {'tlmsid': 'check_obsreq_target_from_pcad'}
+
+    @classmethod
+    def action(cls, cmd):
+        obsid = SC.obsid
+        check = {'name': cls.__name__}
+
+        # TODO refactor to set variables ok, skip, message throughout then `check` at end
+
+        if SC.characteristics is None:
+            check.update({'ok': True,
+                          'skip': True,
+                          'message': 'no Characteristics provided'})
+
+        elif SC.obsreqs is None:
+            check.update({'ok': True,
+                          'skip': True,
+                          'message': 'no OR list provided'})
+
+        elif obsid not in SC.obsreqs:
+            check.update({'ok': False,
+                          'skip': True,
+                          'message': 'obsid {} not in OR list'.format(obsid)})
+
+        else:
+            obsreq = SC.obsreqs[obsid]
+
+            # Gather inputs for doing conversion from spacecraft target attitude
+            # to science target attitude
+            y_off, z_off = obsreq['target_offset_y'], obsreq['target_offset_z']
+            targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
+            pcad = SC.targ_q_att
+            detector = SC.detector
+            si_align = SC.characteristics['odb_si_align'][detector]
+
+            q_targ = chandra_aca.calc_targ_from_aca(pcad, y_off, z_off, si_align)
+            cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
+
+            sep = targ.separation(cmd_targ)
+            if sep < 1. * u.arcsec:
+                ok = True
+                message = 'science target attitude matches OR list for obsid {}'.format(obsid)
+            else:
+                ok = False
+                message = ('science target attitude RA={:.5f} Dec={:.5f} different '
+                           'from OR list for obsid {} by {:.1f}'
+                           .format(q_targ.ra, q_targ.dec, obsid, sep.to('arcsec')))
+            check.update({'ok': ok, 'message': message})
+
+        SC.checks[obsid].append(check)
+
+
 class ManeuverCmd(CmdAction):
     """
     Add a dict that records aggregate information about a maneuver.
@@ -213,6 +329,11 @@ class ManeuverCmd(CmdAction):
         maneuver = cmd['maneuver']
         maneuver['final']['obsid'] = SC.obsid
         SC.maneuver = cmd['maneuver']
+
+        if SC.is_obs_req():
+            SC.add_cmd({'date': cmd['date'],
+                        'tlmsid': 'check_obsreq_target_from_pcad'})
+
 
 class StartManeuverCmd(CmdAction):
     cmd_trigger = {'type': 'COMMAND_SW',
@@ -259,22 +380,23 @@ class NPNTMode(FixedStateValueCmd):
     state_value = 'NPNT'
 
 
-def set_initial_state():
-    """
-    Set the initial state of SC.  For initial testing just use
-    stub values.
-    """
-    SC.q_att = 0, 0, 0
-    SC.targ_q_att = 0, 0, 0
-    SC.obsid = 0
+def check_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None):
+    global SC
 
-set_initial_state()
+    cmds = parse_cm.read_backstop_as_list(backstop_file)
+    obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
+    if ofls_characteristics_file:
+        odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
+                                                     item='ODB_SI_ALIGN')
+        characteristics = {'odb_si_align': odb_si_align}
+    else:
+        characteristics = None
 
-SC.cmds = parse_cm.read_backstop_as_list('test.backstop')
-SC.created_cmds = SC.cmds[:0]
+    SC = SpacecraftState(cmds, obsreqs, characteristics)
 
-# Initial step of adding commands based on actual backstop commands
-for cmd in SC.iter_cmds():
-    for cmd_action in CMD_ACTION_CLASSES:
-        if cmd_action.trigger(cmd):
-            cmd_action.action(cmd)
+    for cmd in SC.iter_cmds():
+        for cmd_action in CMD_ACTION_CLASSES:
+            if cmd_action.trigger(cmd):
+                cmd_action.action(cmd)
+
+    SC.checks = dict(SC.checks)
