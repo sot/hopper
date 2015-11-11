@@ -337,18 +337,6 @@ class ManeuverCmd(CmdAction):
         SC.maneuver = cmd['maneuver']
 
 
-class NPMCmd(CmdAction):
-    cmd_trigger = {'tlmsid': 'add_npm_transition'}
-
-    @classmethod
-    def action(cls, cmd):
-        if SC.is_obs_req():
-            SC.add_cmd({'date': cmd['date'],
-                        'tlmsid': 'check_obsreq_target_from_pcad'})
-
-
-
-
 class StartManeuverCmd(CmdAction):
     cmd_trigger = {'type': 'COMMAND_SW',
                    'tlmsid': 'AOMANUVR'}
@@ -378,11 +366,12 @@ class StartManeuverCmd(CmdAction):
         SC.add_cmd({'date': maneuver['final']['date'],
                     'tlmsid': 'add_maneuver',
                     'maneuver': maneuver})
-        if SC.auto_npm_transition:
-            SC.add_cmd({'date': maneuver['final']['date'],
-                        'tlmsid': 'add_npm_transition',
-                        'pcad_mode': 'NPNT'})
 
+        # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
+        # at 1 second after maneuver end
+        if SC.auto_npm_transition:
+            SC.add_cmd({'date': as_date(att1['time'] + 1),
+                        'tlmsid': 'nmm_npm_transition'})
 
 
 class NMMMode(FixedStateValueCmd):
@@ -392,12 +381,26 @@ class NMMMode(FixedStateValueCmd):
     state_value = 'NMAN'
 
 
-class NPNTMode(FixedStateValueCmd):
-    cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AONPMODE'}
-    state_name = 'pcad_mode'
-    state_value = 'NPNT'
+class NPNTMode(CmdAction):
+    cmd_trigger = None  # custom trigger
 
+    @classmethod
+    def trigger(cls, cmd):
+        ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
+        return ok
+
+    @classmethod
+    def action(cls, cmd):
+        SC.pcad_mode = 'NPNT'
+
+        # For ORs check that the PCAD attitude corresponds to the OR target
+        # coordinates after appropriate align / offset transforms.
+        if SC.is_obs_req():
+            SC.add_cmd({'date': cmd['date'],
+                        'tlmsid': 'check_obsreq_target_from_pcad'})
+
+        # TODO: add commands to kick off ACA sequence with star acquisition
+        # and checking.
 
 class DisableNPMAutoTransition(FixedStateValueCmd):
     cmd_trigger = {'type': 'COMMAND_SW',
