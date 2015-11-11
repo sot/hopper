@@ -291,6 +291,11 @@ class CheckObsreqTargetFromPcad(CmdAction):
                           'skip': True,
                           'message': 'obsid {} not in OR list'.format(obsid)})
 
+        elif 'target_ra' not in SC.obsreqs[obsid]:
+            check.update({'ok': False,
+                          'skip': True,
+                          'message': 'obsid {} does not have RA/Dec in OR'.format(obsid)})
+
         else:
             obsreq = SC.obsreqs[obsid]
 
