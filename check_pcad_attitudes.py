@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import glob
 
 import hopper
 
@@ -37,6 +38,7 @@ def make_pcad_attitude_check_report(backstop_file, or_list_file=None,
                     message = 'OK' if ok else check['message']
                 line = '{:5d}: {}'.format(obsid, message)
                 lines.append(line)
+
     return all_ok, lines
 
 
@@ -70,3 +72,27 @@ def example_with_nov0512():
     print('No characteristics')
     print('OK=', ok)
     print('\n'.join(lines))
+
+
+def example_with_jul0708():
+    """
+    Minimal example of running checks from Python
+    """
+    root = os.path.dirname(__file__)
+    or_list_file = os.path.join(root, 'JUL0708', '*.or')
+    backstop_file = os.path.join(root, 'JUL0708', '*.backstop')
+    ofls_characteristics_file = os.path.join(root, 'NOV0512', 'CHARACTERIS_12MAR15')
+
+    initial_state = {'q_att': ( 3.48209821e-01, 8.52880721e-01, -3.89020247e-01, 2.76475631e-03),
+                     'simpos': 75624,
+                     'simfa_pos': -468}
+
+    # JUL0708 with added CHARACTERISTICS.
+    ok, lines = make_pcad_attitude_check_report(glob.glob(backstop_file)[0],
+                                                glob.glob(or_list_file)[0],
+                                                ofls_characteristics_file,
+                                                initial_state)
+    print('With characteristics')
+    print('OK=', ok)
+    print('\n'.join(lines))
+    print()
