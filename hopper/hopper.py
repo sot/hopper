@@ -19,7 +19,6 @@ logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 CMD_ACTION_CLASSES = []
-SC = None
 
 
 def as_date(time):
@@ -54,11 +53,12 @@ class SpacecraftState(object):
     obsid = StateValue('obsid')
     pitch = StateValue('pitch')
     pcad_mode = StateValue('pcad_mode')
+    auto_npm_transition = StateValue('auto_npm_transition')
     maneuver = StateValue('maneuver')
     q_att = StateValue('q_att', init_func=Quat)
     targ_q_att = StateValue('targ_q_att', init_func=Quat)
 
-    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+    def initialize(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         for attr in self.__class__.__dict__.values():
             if isinstance(attr, StateValue):
                 attr.values = []
@@ -106,6 +106,8 @@ class SpacecraftState(object):
         """
         cmd_date = cmd['date']
 
+        logger.debug('Adding command {}'.format(cmd))
+
         if self.curr_cmd is None:
             i_cmd0 = 0
         else:
@@ -149,6 +151,8 @@ class SpacecraftState(object):
         else:
             raise ValueError('illegal value of sim_tsc: {}'.format(self.simpos))
 
+
+SC = SpacecraftState()
 
 class CmdActionMeta(type):
     """
@@ -332,10 +336,6 @@ class ManeuverCmd(CmdAction):
         maneuver['final']['obsid'] = SC.obsid
         SC.maneuver = cmd['maneuver']
 
-        if SC.is_obs_req():
-            SC.add_cmd({'date': cmd['date'],
-                        'tlmsid': 'check_obsreq_target_from_pcad'})
-
 
 class StartManeuverCmd(CmdAction):
     cmd_trigger = {'type': 'COMMAND_SW',
@@ -367,6 +367,12 @@ class StartManeuverCmd(CmdAction):
                     'tlmsid': 'add_maneuver',
                     'maneuver': maneuver})
 
+        # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
+        # at 1 second after maneuver end
+        if SC.auto_npm_transition:
+            SC.add_cmd({'date': as_date(att1['time'] + 1),
+                        'tlmsid': 'nmm_npm_transition'})
+
 
 class NMMMode(FixedStateValueCmd):
     cmd_trigger = {'type': 'COMMAND_SW',
@@ -375,17 +381,44 @@ class NMMMode(FixedStateValueCmd):
     state_value = 'NMAN'
 
 
-class NPNTMode(FixedStateValueCmd):
+class NPNTMode(CmdAction):
+    cmd_trigger = None  # custom trigger
+
+    @classmethod
+    def trigger(cls, cmd):
+        ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
+        return ok
+
+    @classmethod
+    def action(cls, cmd):
+        SC.pcad_mode = 'NPNT'
+
+        # For ORs check that the PCAD attitude corresponds to the OR target
+        # coordinates after appropriate align / offset transforms.
+        if SC.is_obs_req():
+            SC.add_cmd({'date': cmd['date'],
+                        'tlmsid': 'check_obsreq_target_from_pcad'})
+
+        # TODO: add commands to kick off ACA sequence with star acquisition
+        # and checking.
+
+class DisableNPMAutoTransition(FixedStateValueCmd):
     cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AONPMODE'}
-    state_name = 'pcad_mode'
-    state_value = 'NPNT'
+                   'tlmsid': 'AONM2NPD'}
+    state_name = 'auto_npm_transition'
+    state_value = False
+
+
+class EnableNPMAutoTransition(FixedStateValueCmd):
+    cmd_trigger = {'type': 'COMMAND_SW',
+                   'tlmsid': 'AONM2NPE'}
+    state_name = 'auto_npm_transition'
+    state_value = True
+
 
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
              initial_state=None):
-    global SC
-
     cmds = parse_cm.read_backstop_as_list(backstop_file)
     obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
     if ofls_characteristics_file:
@@ -395,7 +428,7 @@ def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    SC = SpacecraftState(cmds, obsreqs, characteristics, initial_state)
+    SC.initialize(cmds, obsreqs, characteristics, initial_state)
 
     # Run through load commands and do checks
     for cmd in SC.iter_cmds():
