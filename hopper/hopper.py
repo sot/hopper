@@ -398,6 +398,12 @@ class NPNTMode(CmdAction):
     def action(cls, cmd):
         SC.pcad_mode = 'NPNT'
 
+        # Only do subsequent checks for auto transition to NPM following
+        # a maneuver.  Other NPM transitions (following NPM dumps, mech moves)
+        # don't generate checks.
+        if cmd['tlmsid'] != 'nmm_npm_transition':
+            return
+
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
