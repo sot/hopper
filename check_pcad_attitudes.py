@@ -74,23 +74,23 @@ def example_with_nov0512():
     print('\n'.join(lines))
 
 
-def example_with_jul0708():
+def example_with_oct0515():
     """
     Minimal example of running checks from Python
     """
     root = os.path.dirname(__file__)
-    or_list_file = os.path.join(root, 'JUL0708', '*.or')
-    backstop_file = os.path.join(root, 'JUL0708', '*.backstop')
-    ofls_characteristics_file = os.path.join(root, 'NOV0512', 'CHARACTERIS_12MAR15')
+    or_list_file = os.path.join(root, 'OCT0515', '*.or')
+    backstop_file = os.path.join(root, 'OCT0515', '*.backstop')
+    ofls_characteristics_file = os.path.join(root, 'OCT0515', 'CHARACTERIS*')
 
-    initial_state = {'q_att': ( 3.48209821e-01, 8.52880721e-01, -3.89020247e-01, 2.76475631e-03),
+    initial_state = {'q_att': (-6.48322909e-01, 6.38847453e-02, -5.54412345e-01, 5.17902594e-01),
                      'simpos': 75624,
                      'simfa_pos': -468}
 
     # JUL0708 with added CHARACTERISTICS.
     ok, lines = make_pcad_attitude_check_report(glob.glob(backstop_file)[0],
                                                 glob.glob(or_list_file)[0],
-                                                ofls_characteristics_file,
+                                                glob.glob(ofls_characteristics_file)[0],
                                                 initial_state)
     print('With characteristics')
     print('OK=', ok)
