@@ -2,16 +2,17 @@ from __future__ import print_function
 
 import os
 import glob
+import pytest
 
 import hopper
 
+root = os.path.dirname(__file__)
 
-def make_pcad_attitude_check_report(backstop_file, or_list_file=None,
-                                    ofls_characteristics_file=None, initial_state=None):
-    """
-    Minimal example of making a report for checking PCAD attitudes
-    """
+HAS_OCT0515 = os.path.exists(os.path.join(root, 'OCT0515'))
 
+
+def run_hopper(backstop_file, or_list_file=None,
+               ofls_characteristics_file=None, initial_state=None):
     # Run the commands and populate attributes in `sc`, the spacecraft state.
     # In particular sc.checks is a dict of checks by obsid.
     # Any state value (e.g. obsid or q_att) has a corresponding plural that
@@ -42,11 +43,10 @@ def make_pcad_attitude_check_report(backstop_file, or_list_file=None,
     return all_ok, lines
 
 
-def example_with_nov0512():
+def test_nov0512():
     """
     Minimal example of running checks from Python
     """
-    root = os.path.dirname(__file__)
     or_list_file = os.path.join(root, 'NOV0512', 'or_list')
     backstop_file = os.path.join(root, 'NOV0512', 'backstop')
     ofls_characteristics_file = os.path.join(root, 'NOV0512', 'CHARACTERIS_12MAR15')
@@ -56,43 +56,34 @@ def example_with_nov0512():
                      'simfa_pos': -468}
 
     # NOV0512 with added CHARACTERISTICS.
-    ok, lines = make_pcad_attitude_check_report(backstop_file, or_list_file,
-                                                ofls_characteristics_file, initial_state)
-    print('With characteristics')
-    print('OK=', ok)
-    print('\n'.join(lines))
-    print()
+    ok, lines = run_hopper(backstop_file, or_list_file, ofls_characteristics_file, initial_state)
+    assert ('13871: science target attitude RA=160.63125 Dec=5.04381 '
+            'different from OR list for obsid 13871 by 3.6 arcsec' in lines)
+    assert not ok
 
     # NOV0512 the way it really is.  This is how old loads with no characteristics will
-    # process when run through the checker.  But for now there is no really need to call
-    # this function from perl starcheck in that case, the starcheck output should be
-    # entirely UNCHANGED.
-    ok, lines = make_pcad_attitude_check_report(backstop_file, or_list_file,
-                                                None, initial_state)
-    print('No characteristics')
-    print('OK=', ok)
-    print('\n'.join(lines))
+    # process when run through the checker.
+    ok, lines = run_hopper(backstop_file, or_list_file, None, initial_state)
+    assert ok
 
 
-def example_with_oct0515():
+@pytest.mark.skipif('not HAS_OCT0515')
+def test_oct0515():
     """
-    Minimal example of running checks from Python
+    More recent loads (not in version control)
     """
     root = os.path.dirname(__file__)
     or_list_file = os.path.join(root, 'OCT0515', '*.or')
     backstop_file = os.path.join(root, 'OCT0515', '*.backstop')
-    ofls_characteristics_file = os.path.join(root, 'OCT0515', 'CHARACTERIS*')
+    ofls_characteristics_file = os.path.join(root, 'OCT0515', 'mps', 'ode', 'characteristics',
+                                             'CHARACTERIS*')
 
     initial_state = {'q_att': (-6.48322909e-01, 6.38847453e-02, -5.54412345e-01, 5.17902594e-01),
                      'simpos': 75624,
                      'simfa_pos': -468}
 
-    # JUL0708 with added CHARACTERISTICS.
-    ok, lines = make_pcad_attitude_check_report(glob.glob(backstop_file)[0],
-                                                glob.glob(or_list_file)[0],
-                                                glob.glob(ofls_characteristics_file)[0],
-                                                initial_state)
-    print('With characteristics')
-    print('OK=', ok)
-    print('\n'.join(lines))
-    print()
+    ok, lines = run_hopper(glob.glob(backstop_file)[0],
+                           glob.glob(or_list_file)[0],
+                           glob.glob(ofls_characteristics_file)[0],
+                           initial_state)
+    assert ok
