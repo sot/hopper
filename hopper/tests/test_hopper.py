@@ -30,7 +30,7 @@ def run_hopper(backstop_file, or_list_file=None,
 
         checks = sc.checks[obsid]
         for check in checks:
-            if check['name'] == 'pcad.attitude_consistent_with_obsreq':
+            if check['name'] == 'aca.attitude_consistent_with_obsreq':
                 ok = check['ok']
                 all_ok &= ok
                 if check.get('skip'):

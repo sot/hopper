@@ -6,6 +6,7 @@ commands or doing checks.
 
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+from itertools import izip
 
 import chandra_aca
 import Chandra.Maneuver
@@ -18,14 +19,36 @@ def as_date(time):
 CMD_ACTION_CLASSES = []
 
 
+def un_camel_case(cc_name):
+    chars = []
+    for c0, c1 in izip(cc_name[:-1], cc_name[1:]):
+        # Lower case followed by Upper case then insert "_"
+        chars.append(c0.lower())
+        if c0.lower() == c0 and c1.lower() != c1:
+            chars.append('_')
+    chars.append(c1.lower())
+
+    return ''.join(chars)
+
+
 class CmdActionMeta(type):
     """
     Simple metaclass to register CmdAction classes
     """
     def __init__(cls, name, bases, dct):
-        super(CmdActionMeta, cls).__init__(name, bases, dct)
-        if 'cmd_trigger' in dct:
+        parents = []
+        for mro_class in cls.mro():
+            mro_name = mro_class.__name__.strip('Check')
+            if mro_name == '':  # Final Check class
+                cls.name = '.'.join(reversed(parents))
+                cls.cmd_trigger = {'check': cls.name}
+                break
+            parents.append(un_camel_case(mro_name))
+
+        if hasattr(cls, 'cmd_trigger'):
             CMD_ACTION_CLASSES.append(cls)
+
+        super(CmdActionMeta, cls).__init__(name, bases, dct)
 
 
 class CmdAction(object):
@@ -42,6 +65,10 @@ class CmdAction(object):
 
     def action(self):
         raise NotImplemented()
+
+
+class Check(CmdAction):
+    cmd_trigger = {'type': 'check'}
 
 
 class StateValueCmd(CmdAction):
@@ -124,14 +151,16 @@ class PitchCmd(StateValueCmd):
     cmd_key = 'pitch'
 
 
-class CheckObsreqTargetFromPcad(CmdAction):
+class AcaCheck(Check):
+    pass
+
+
+class AttitudeConsistentWithObsreq(AcaCheck):
     """
     For science observations check that the expected target attitude
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
     the OR target attitude.
     """
-    name = 'pcad.attitude_consistent_with_obsreq'
-    cmd_trigger = {'tlmsid': 'check_obsreq_target_from_pcad'}
 
     def action(self, cmd):
         SC = self.SC
@@ -272,7 +301,7 @@ class NPNTMode(CmdAction):
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
             SC.add_cmd({'date': cmd['date'],
-                        'tlmsid': 'check_obsreq_target_from_pcad'})
+                        'check': 'aca.attitude_consistent_with_obsreq'})
 
         # TODO: add commands to kick off ACA sequence with star acquisition
         # and checking.
