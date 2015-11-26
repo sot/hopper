@@ -30,7 +30,7 @@ def run_hopper(backstop_file, or_list_file=None,
 
         checks = sc.checks[obsid]
         for check in checks:
-            if check['name'] == 'CheckObsreqTargetFromPcad':
+            if check['name'] == 'pcad.attitude_consistent_with_obsreq':
                 ok = check['ok']
                 all_ok &= ok
                 if check.get('skip'):
@@ -40,7 +40,7 @@ def run_hopper(backstop_file, or_list_file=None,
                 line = '{:5d}: {}'.format(obsid, message)
                 lines.append(line)
 
-    return all_ok, lines
+    return all_ok, lines, sc
 
 
 def test_nov0512():
@@ -56,14 +56,15 @@ def test_nov0512():
                      'simfa_pos': -468}
 
     # NOV0512 with added CHARACTERISTICS.
-    ok, lines = run_hopper(backstop_file, or_list_file, ofls_characteristics_file, initial_state)
+    ok, lines, sc = run_hopper(backstop_file, or_list_file,
+                               ofls_characteristics_file, initial_state)
     assert ('13871: science target attitude RA=160.63125 Dec=5.04381 '
             'different from OR list for obsid 13871 by 3.6 arcsec' in lines)
     assert not ok
 
     # NOV0512 the way it really is.  This is how old loads with no characteristics will
     # process when run through the checker.
-    ok, lines = run_hopper(backstop_file, or_list_file, None, initial_state)
+    ok, lines, sc = run_hopper(backstop_file, or_list_file, None, initial_state)
     assert ok
 
 
@@ -82,8 +83,8 @@ def test_oct0515():
                      'simpos': 75624,
                      'simfa_pos': -468}
 
-    ok, lines = run_hopper(glob.glob(backstop_file)[0],
-                           glob.glob(or_list_file)[0],
-                           glob.glob(ofls_characteristics_file)[0],
-                           initial_state)
+    ok, lines, sc = run_hopper(glob.glob(backstop_file)[0],
+                               glob.glob(or_list_file)[0],
+                               glob.glob(ofls_characteristics_file)[0],
+                               initial_state)
     assert ok
