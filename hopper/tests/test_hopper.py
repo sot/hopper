@@ -31,7 +31,7 @@ def run_hopper(backstop_file, or_list_file=None,
 
         checks = sc.checks[obsid]
         for check in checks:
-            if check['name'] == hopper.cmd_action.AttitudeConsistentWithObsreq.name:
+            if check['name'] == hopper.cmd_action.AttitudeConsistentWithObsreqCheck.name:
                 ok = check['ok']
                 all_ok &= ok
                 if check.get('skip'):

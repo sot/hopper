@@ -83,6 +83,14 @@ class CmdBase(object):
         raise NotImplemented()
 
 
+class Check(CmdBase):
+    pass
+
+
+class Action(CmdBase):
+    pass
+
+
 class StateValueCmd(CmdBase):
     """
     Set a state value from a single key in the cmd dict.
@@ -139,35 +147,124 @@ class TargQAttCmd(StateValueCmd):
     cmd_key = 'q1', 'q2', 'q3', 'q4'
 
 
-class QAttCmd(StateValueCmd):
-    """
-    Pseudo-command to update current attitude quaternion
-    """
-    cmd_trigger = {'tlmsid': 'update_q_att'}
-    state_name = 'q_att'
-    cmd_key = 'q1', 'q2', 'q3', 'q4'
-
-
 class ObsidCmd(StateValueCmd):
     cmd_trigger = {'type': 'MP_OBSID', 'tlmsid': 'COAOSQID'}
     state_name = 'obsid'
     cmd_key = 'id'
 
 
-class PitchCmd(StateValueCmd):
+class ManeuverCmd(CmdBase):
+    cmd_trigger = {'tlmsid': 'AOMANUVR'}
+
+    def action(self, cmd):
+        SC = self.SC
+        atts = Chandra.Maneuver.attitudes(SC.q_att, SC.targ_q_att,
+                                          step=300, tstart=cmd['date'])
+        for time, q1, q2, q3, q4, pitch in atts:
+            date = DateTime(time).date
+            SC.add_cmd({'date': date,
+                        'action': 'update_q_att',
+                        'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4})
+            SC.add_cmd({'date': date,
+                        'action': 'update_pitch',
+                        'pitch': pitch})
+
+        att0 = atts[0]
+        att1 = atts[-1]
+        maneuver = {'initial': {'date': as_date(att0['time']),
+                                'q_att': (att0['q1'], att0['q2'], att0['q3'], att0['q4']),
+                                'obsid': SC.obsid},
+                    'final': {'date': as_date(att1['time']),
+                              'q_att': (att1['q1'], att1['q2'], att1['q3'], att1['q4'])},
+                    'dur': att1['time'] - att0['time']}
+
+        SC.add_cmd({'date': maneuver['final']['date'],
+                    'action': 'add_maneuver',
+                    'maneuver': maneuver})
+
+        # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
+        # at 1 second after maneuver end
+        if SC.auto_npm_transition:
+            SC.add_cmd({'date': as_date(att1['time'] + 1),
+                        'tlmsid': 'nmm_npm_transition'})
+
+
+class NmmModeCmd(FixedStateValueCmd):
+    cmd_trigger = {'tlmsid': 'AONMMODE'}
+    state_name = 'pcad_mode'
+    state_value = 'NMAN'
+
+
+class NpntModeCmd(CmdBase):
+    cmd_trigger = None  # custom trigger
+
+    @classmethod
+    def trigger(cls, cmd):
+        ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
+        return ok
+
+    def action(self, cmd):
+        SC = self.SC
+        SC.pcad_mode = 'NPNT'
+
+        # Only do subsequent checks for auto transition to NPM following
+        # a maneuver.  Other NPM transitions (following NPM dumps, mech moves)
+        # don't generate checks.
+        if cmd['tlmsid'] != 'nmm_npm_transition':
+            return
+
+        # For ORs check that the PCAD attitude corresponds to the OR target
+        # coordinates after appropriate align / offset transforms.
+        if SC.is_obs_req():
+            SC.add_cmd({'date': cmd['date'],
+                        'check': 'attitude_consistent_with_obsreq'})
+
+        # TODO: add commands to kick off ACA sequence with star acquisition
+        # and checking.
+
+class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
+    cmd_trigger = {'tlmsid': 'AONM2NPD'}
+    state_name = 'auto_npm_transition'
+    state_value = False
+
+
+class EnableNPMAutoTransitionCmd(FixedStateValueCmd):
+    cmd_trigger = {'tlmsid': 'AONM2NPE'}
+    state_name = 'auto_npm_transition'
+    state_value = True
+
+
+class SetQAttAction(Action, StateValueCmd):
     """
-    Pseudo-command to update current Sun pitch angle.
+    Action to update current attitude quaternion
     """
-    cmd_trigger = {'tlmsid': 'update_pitch'}
+    state_name = 'q_att'
+    cmd_key = 'q1', 'q2', 'q3', 'q4'
+
+
+class SetPitchAction(Action, StateValueCmd):
+    """
+    Action to update current Sun pitch angle.
+    """
     state_name = 'pitch'
     cmd_key = 'pitch'
 
 
-class Check(CmdBase):
-    pass
+class AddManeuverAction(Action):
+    """
+    Add a dict that records aggregate information about a maneuver.
+
+    This is an example of a delayed action since this command is injected
+    at maneuver start but evaluated maneuver end and so the obsid will be
+    correct.
+    """
+    def action(self, cmd):
+        maneuver = cmd['maneuver']
+        maneuver['final']['obsid'] = self.SC.obsid
+        self.SC.maneuver = cmd['maneuver']
 
 
-class AttitudeConsistentWithObsreq(Check):
+class AttitudeConsistentWithObsreqCheck(Check):
     """
     For science observations check that the expected target attitude
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
@@ -228,105 +325,3 @@ class AttitudeConsistentWithObsreq(Check):
             check.update({'ok': ok, 'message': message})
 
         SC.checks[obsid].append(check)
-
-
-class ManeuverCmd(CmdBase):
-    """
-    Add a dict that records aggregate information about a maneuver.
-
-    This is an example of a delayed action since this command is injected
-    at maneuver start but evaluated maneuver end and so the obsid will be
-    correct.
-    """
-
-    cmd_trigger = {'tlmsid': 'add_maneuver'}
-
-    def action(self, cmd):
-        maneuver = cmd['maneuver']
-        maneuver['final']['obsid'] = self.SC.obsid
-        self.SC.maneuver = cmd['maneuver']
-
-
-class StartManeuverCmd(CmdBase):
-    cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AOMANUVR'}
-
-    def action(self, cmd):
-        SC = self.SC
-        atts = Chandra.Maneuver.attitudes(SC.q_att, SC.targ_q_att,
-                                          step=300, tstart=cmd['date'])
-        for time, q1, q2, q3, q4, pitch in atts:
-            date = DateTime(time).date
-            SC.add_cmd({'date': date,
-                        'tlmsid': 'update_q_att',
-                        'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4})
-            SC.add_cmd({'date': date,
-                        'tlmsid': 'update_pitch',
-                        'pitch': pitch})
-
-        att0 = atts[0]
-        att1 = atts[-1]
-        maneuver = {'initial': {'date': as_date(att0['time']),
-                                'q_att': (att0['q1'], att0['q2'], att0['q3'], att0['q4']),
-                                'obsid': SC.obsid},
-                    'final': {'date': as_date(att1['time']),
-                              'q_att': (att1['q1'], att1['q2'], att1['q3'], att1['q4'])},
-                    'dur': att1['time'] - att0['time']}
-
-        SC.add_cmd({'date': maneuver['final']['date'],
-                    'tlmsid': 'add_maneuver',
-                    'maneuver': maneuver})
-
-        # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
-        # at 1 second after maneuver end
-        if SC.auto_npm_transition:
-            SC.add_cmd({'date': as_date(att1['time'] + 1),
-                        'tlmsid': 'nmm_npm_transition'})
-
-
-class NMMMode(FixedStateValueCmd):
-    cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AONMMODE'}
-    state_name = 'pcad_mode'
-    state_value = 'NMAN'
-
-
-class NPNTMode(CmdBase):
-    cmd_trigger = None  # custom trigger
-
-    @classmethod
-    def trigger(cls, cmd):
-        ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
-        return ok
-
-    def action(self, cmd):
-        SC = self.SC
-        SC.pcad_mode = 'NPNT'
-
-        # Only do subsequent checks for auto transition to NPM following
-        # a maneuver.  Other NPM transitions (following NPM dumps, mech moves)
-        # don't generate checks.
-        if cmd['tlmsid'] != 'nmm_npm_transition':
-            return
-
-        # For ORs check that the PCAD attitude corresponds to the OR target
-        # coordinates after appropriate align / offset transforms.
-        if SC.is_obs_req():
-            SC.add_cmd({'date': cmd['date'],
-                        'check': 'attitude_consistent_with_obsreq'})
-
-        # TODO: add commands to kick off ACA sequence with star acquisition
-        # and checking.
-
-class DisableNPMAutoTransition(FixedStateValueCmd):
-    cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AONM2NPD'}
-    state_name = 'auto_npm_transition'
-    state_value = False
-
-
-class EnableNPMAutoTransition(FixedStateValueCmd):
-    cmd_trigger = {'type': 'COMMAND_SW',
-                   'tlmsid': 'AONM2NPE'}
-    state_name = 'auto_npm_transition'
-    state_value = True
