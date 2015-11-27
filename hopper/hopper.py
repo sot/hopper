@@ -47,7 +47,7 @@ class SpacecraftState(object):
     q_att = StateValue('q_att', init_func=Quat)
     targ_q_att = StateValue('targ_q_att', init_func=Quat)
 
-    def initialize(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         for attr in self.__class__.__dict__.values():
             if isinstance(attr, StateValue):
                 attr.values = []
@@ -157,7 +157,6 @@ class SpacecraftState(object):
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
              initial_state=None):
-    SC = SpacecraftState()
     cmds = parse_cm.read_backstop_as_list(backstop_file)
     obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
     if ofls_characteristics_file:
@@ -167,7 +166,7 @@ def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    SC.initialize(cmds, obsreqs, characteristics, initial_state)
+    SC = SpacecraftState(cmds, obsreqs, characteristics, initial_state)
     SC.run()
 
     return SC
