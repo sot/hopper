@@ -5,6 +5,7 @@ import glob
 import pytest
 
 import hopper
+import hopper.cmd_action
 
 root = os.path.dirname(__file__)
 
@@ -30,7 +31,7 @@ def run_hopper(backstop_file, or_list_file=None,
 
         checks = sc.checks[obsid]
         for check in checks:
-            if check['name'] == 'aca.attitude_consistent_with_obsreq':
+            if check['name'] == hopper.cmd_action.AttitudeConsistentWithObsreq.name:
                 ok = check['ok']
                 all_ok &= ok
                 if check.get('skip'):

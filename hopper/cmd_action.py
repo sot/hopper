@@ -4,6 +4,7 @@ and perform subsequent actions which could include spawning new
 commands or doing checks.
 """
 
+import re
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 from itertools import izip
@@ -31,28 +32,43 @@ def un_camel_case(cc_name):
     return ''.join(chars)
 
 
-class CmdActionMeta(type):
-    """
-    Simple metaclass to register CmdAction classes
+class CmdBaseMeta(type):
+    """Metaclass to register CmdAction classes and auto-generate ``name`` and
+    ``cmd_trigger`` class attributes for ``Check`` and ``Action`` subclasses.
+
+    For example, consider the classes below::
+
+      class PcadCheck(Check):
+      class AttitudeConsistentWithObsreq(PcadCheck):
+
+    This code will result in::
+
+      name = 'pcad.attitude_consistent_with_obsreq'
+      cmd_trigger = {'check': 'pcad.attitude_consistent_with_obsreq'}
+
+    The class name can optionally end in Check or Action (and this gets
+    stripped out from the ``name``), but the class base for checks or actions
+    must be ``Check`` or ``Action``, respectively.
+
     """
     def __init__(cls, name, bases, dct):
         parents = []
         for mro_class in cls.mro():
-            mro_name = mro_class.__name__.strip('Check')
-            if mro_name == '':  # Final Check class
+            mro_name = re.sub(r'(Check|Action)$', '', mro_class.__name__)
+            if mro_name == '':  # Final Check or Action class
                 cls.name = '.'.join(reversed(parents))
-                cls.cmd_trigger = {'check': cls.name}
+                cls.cmd_trigger = {mro_class.__name__.lower(): cls.name}
                 break
             parents.append(un_camel_case(mro_name))
 
         if hasattr(cls, 'cmd_trigger'):
             CMD_ACTION_CLASSES.append(cls)
 
-        super(CmdActionMeta, cls).__init__(name, bases, dct)
+        super(CmdBaseMeta, cls).__init__(name, bases, dct)
 
 
-class CmdAction(object):
-    __metaclass__ = CmdActionMeta
+class CmdBase(object):
+    __metaclass__ = CmdBaseMeta
 
     def __init__(self, SC):
         self.SC = SC  # global spacecraft state
@@ -67,11 +83,7 @@ class CmdAction(object):
         raise NotImplemented()
 
 
-class Check(CmdAction):
-    cmd_trigger = {'type': 'check'}
-
-
-class StateValueCmd(CmdAction):
+class StateValueCmd(CmdBase):
     """
     Set a state value from a single key in the cmd dict.
 
@@ -89,7 +101,7 @@ class StateValueCmd(CmdAction):
         setattr(self.SC, self.state_name, value)
 
 
-class FixedStateValueCmd(CmdAction):
+class FixedStateValueCmd(CmdBase):
     """
     Base class for setting a single state value to something fixed.
     These class attributes are required:
@@ -151,11 +163,11 @@ class PitchCmd(StateValueCmd):
     cmd_key = 'pitch'
 
 
-class AcaCheck(Check):
+class Check(CmdBase):
     pass
 
 
-class AttitudeConsistentWithObsreq(AcaCheck):
+class AttitudeConsistentWithObsreq(Check):
     """
     For science observations check that the expected target attitude
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
@@ -218,7 +230,7 @@ class AttitudeConsistentWithObsreq(AcaCheck):
         SC.checks[obsid].append(check)
 
 
-class ManeuverCmd(CmdAction):
+class ManeuverCmd(CmdBase):
     """
     Add a dict that records aggregate information about a maneuver.
 
@@ -235,7 +247,7 @@ class ManeuverCmd(CmdAction):
         self.SC.maneuver = cmd['maneuver']
 
 
-class StartManeuverCmd(CmdAction):
+class StartManeuverCmd(CmdBase):
     cmd_trigger = {'type': 'COMMAND_SW',
                    'tlmsid': 'AOMANUVR'}
 
@@ -279,7 +291,7 @@ class NMMMode(FixedStateValueCmd):
     state_value = 'NMAN'
 
 
-class NPNTMode(CmdAction):
+class NPNTMode(CmdBase):
     cmd_trigger = None  # custom trigger
 
     @classmethod
@@ -301,7 +313,7 @@ class NPNTMode(CmdAction):
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
             SC.add_cmd({'date': cmd['date'],
-                        'check': 'aca.attitude_consistent_with_obsreq'})
+                        'check': 'attitude_consistent_with_obsreq'})
 
         # TODO: add commands to kick off ACA sequence with star acquisition
         # and checking.
