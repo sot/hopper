@@ -3,6 +3,7 @@
 from __future__ import print_function, division, absolute_import
 
 from collections import defaultdict
+from copy import copy
 
 import pyyaks.logger
 import parse_cm
@@ -12,7 +13,7 @@ logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 from .cmd_action import CMD_ACTION_CLASSES
-
+DATE_ZERO = '1999:001:00:00:00.000'
 
 class StateValue(object):
     def __init__(self, name, init_func=None, log=True):
@@ -22,18 +23,24 @@ class StateValue(object):
         self.log = log
         self.init_func = init_func
 
-    def __get__(self, instance, cls):
+    def __get__(self, SC, cls):
         return self.value
 
-    def __set__(self, instance, value):
-        date = instance.curr_cmd['date'] if instance.curr_cmd else '2000:001:00:00:00.000'
+    def __set__(self, SC, value):
+        date = SC.curr_cmd['date']
 
         if self.log:
             logger.debug('{} {}={}'.format(date, self.name, value))
+
         if self.init_func:
             value = self.init_func(value)
         self.value = value
         self.values.append({'value': value, 'date': date})
+
+        if SC.state['date'] != date:
+            SC.states.append(copy(SC.state))
+            SC.state['date'] = date
+        SC.state[self.name] = value
 
 
 class SpacecraftState(object):
@@ -55,8 +62,12 @@ class SpacecraftState(object):
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
         self.i_curr_cmd = None
-        self.curr_cmd = None
+        self.curr_cmd = {'date': DATE_ZERO}
         self.checks = defaultdict(list)
+
+        self.states = [{attr: None for attr, val in self.__dict__.items()
+                        if isinstance(val, StateValue)}]
+        self.state['date'] = DATE_ZERO
 
         if initial_state is None:
             initial_state = {'q_att': (0, 0, 0),
@@ -153,6 +164,9 @@ class SpacecraftState(object):
         else:
             raise ValueError('illegal value of sim_tsc: {}'.format(self.simpos))
 
+    @property
+    def state(self):
+        return self.states[-1]
 
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
