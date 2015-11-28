@@ -54,7 +54,8 @@ def test_nov0512():
 
     initial_state = {'q_att': (-3.41366779e-02, 6.48062295e-01, 7.48327371e-01, 1.37317495e-01),
                      'simpos': 75624,
-                     'simfa_pos': -468}
+                     'simfa_pos': -468,
+                     'date': '2012-11-10 00:00:00'}
 
     # NOV0512 with added CHARACTERISTICS.
     ok, lines, sc = run_hopper(backstop_file, or_list_file,
@@ -82,7 +83,8 @@ def test_oct0515():
 
     initial_state = {'q_att': (-6.48322909e-01, 6.38847453e-02, -5.54412345e-01, 5.17902594e-01),
                      'simpos': 75624,
-                     'simfa_pos': -468}
+                     'simfa_pos': -468,
+                     'date': '2015-10-13 00:00:00'}
 
     ok, lines, sc = run_hopper(glob.glob(backstop_file)[0],
                                glob.glob(or_list_file)[0],

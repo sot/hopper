@@ -13,7 +13,11 @@ logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 from .cmd_action import CMD_ACTION_CLASSES
-DATE_ZERO = '1999:001:00:00:00.000'
+STATE0 = {'q_att': (0, 0, 0),
+          'targ_q_att': (0, 0, 0),
+          'simpos': 0,
+          'simfa_pos': 0,
+          'date': '1999:001:00:00:00.000'}
 
 class StateValue(object):
     def __init__(self, name, init_func=None, log=True):
@@ -27,7 +31,7 @@ class StateValue(object):
         return self.value
 
     def __set__(self, SC, value):
-        date = SC.curr_cmd['date']
+        date = SC.date
 
         if self.log:
             logger.debug('{} {}={}'.format(date, self.name, value))
@@ -37,10 +41,11 @@ class StateValue(object):
         self.value = value
         self.values.append({'value': value, 'date': date})
 
-        if SC.state['date'] != date:
-            SC.states.append(copy(SC.state))
-            SC.state['date'] = date
-        SC.state[self.name] = value
+        if hasattr(SC, 'states'):
+            if SC.state['date'] != date:
+                SC.states.append(copy(SC.state))
+                SC.state['date'] = date
+            SC.state[self.name] = value
 
 
 class SpacecraftState(object):
@@ -62,26 +67,29 @@ class SpacecraftState(object):
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
         self.i_curr_cmd = None
-        self.curr_cmd = {'date': DATE_ZERO}
+        self.curr_cmd = None
         self.checks = defaultdict(list)
 
-        self.states = [{attr: None for attr, val in self.__dict__.items()
-                        if isinstance(val, StateValue)}]
-        self.state['date'] = DATE_ZERO
+        # Make the initial spacecraft "state" dict from user-supplied values, with
+        # defaults provided by STATE0
+        state0 = copy(STATE0)
+        state0.update(initial_state or {})
 
-        if initial_state is None:
-            initial_state = {'q_att': (0, 0, 0),
-                             'targ_q_att': (0, 0, 0),
-                             'simpos': 0,
-                             'simfa_pos': 0}
-        for key, val in initial_state.items():
+        self.date = state0['date']
+        self.states = [{attr: getattr(self, attr) for attr, val in self.__dict__.items()
+                        if isinstance(val, StateValue)}]
+        self.states[0]['date'] = self.date
+
+        for key, val in state0.items():
             setattr(self, key, val)
+
 
     def run(self):
         cmd_actions = []
 
         # Run through load commands and do checks
         for cmd in self.iter_cmds():
+            self.date = cmd['date']
             for cmd_action_class in CMD_ACTION_CLASSES:
                 if cmd_action_class.trigger(cmd):
                     cmd_action = cmd_action_class(self)
@@ -91,7 +99,9 @@ class SpacecraftState(object):
         self.checks = dict(self.checks)
 
     def __getattr__(self, attr):
-        if attr.endswith('s') and attr[:-1] in self.__class__.__dict__:
+        if (attr.endswith('s')
+                and attr[:-1] in self.__class__.__dict__
+                and isinstance(self.__class__.__dict__[attr[:-1]], StateValue)):
             values = self.__class__.__dict__[attr[:-1]].values
             return values
         else:
@@ -128,17 +138,17 @@ class SpacecraftState(object):
             # it is *after* current command (otherwise iteration gets messed up).
             # In this case add commands after iteration is done.
             if cmd_date < self.curr_cmd['date']:
-                self.cmds_to_add.append(cmd)
-                return
+                raise ValueError('cannot insert command {} prior to current command {}'
+                                 .format(cmd, self.curr_cmd))
             i_cmd0 = self.i_curr_cmd + 1
 
         cmds = self.cmds
-        for i_cmd in xrange(i_cmd0, len(self.cmds)):
+        for i_cmd in xrange(i_cmd0, len(cmds)):
             if cmd_date < cmds[i_cmd]['date']:
-                self.cmds.insert(i_cmd, cmd)
+                cmds.insert(i_cmd, cmd)
                 break
         else:
-            self.cmds.append(cmd)
+            cmds.append(cmd)
 
     def is_obs_req(self):
         """
