@@ -2,6 +2,7 @@
 """
 from __future__ import print_function, division, absolute_import
 
+from collections import OrderedDict
 from copy import copy
 import numpy as np
 
@@ -46,11 +47,7 @@ class StateValue(object):
         # Return last sample before or at the current SC date
         date = SC.date
         idx = np.searchsorted(self.dates, date, side='right') - 1
-        if idx >= 0:
-            return self.values[idx]
-        else:
-            raise IndexError('first state sample for {} is at {} (vs. SC.date={})'
-                             .format(self.name, self.dates[0], date))
+        return self.values[idx] if (idx >= 0) else None
 
     def __set__(self, SC, value):
         date = SC.date
@@ -128,14 +125,14 @@ class SpacecraftState(object):
 
     def __getattr__(self, attr):
         cls_dict = self.__class__.__dict__
-        attr1 = attr[:-1]
-        if (attr.endswith('s')
-                and attr1 in cls_dict
-                and isinstance(cls_dict[attr1], StateValue)):
-            return {'values': cls_dict[attr1].values,
-                    'dates': cls_dict[attr1].dates}
-        else:
-            return super(SpacecraftState, self).__getattribute__(attr)
+        for ending in ('s', '_dates'):
+            attr1 = attr[:-len(ending)]
+            if (attr.endswith(ending)
+                    and attr1 in cls_dict
+                    and isinstance(cls_dict[attr1], StateValue)):
+                return cls_dict[attr1].values if (ending == 's') else cls_dict[attr1].dates
+
+        return super(SpacecraftState, self).__getattribute__(attr)
 
     def iter_cmds(self):
         for i, cmd in enumerate(self.cmds):
@@ -211,8 +208,18 @@ class SpacecraftState(object):
         else:
             raise ValueError('illegal value of sim_tsc: {}'.format(self.simpos))
 
-    def state(self, date=None):
-        return self.states[-1]
+    def get_checks_by_obsid(self):
+        """
+        Return checks organized by obsid
+        """
+        checks = OrderedDict()
+        for obsid in self.obsids:
+            checks[obsid] = []
+
+        for check in self.checks:
+            checks[check.obsid].append(check)
+
+        return checks
 
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,

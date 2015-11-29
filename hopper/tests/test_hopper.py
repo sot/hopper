@@ -24,9 +24,11 @@ def run_hopper(backstop_file, or_list_file=None,
 
     # Iterate through obsids in order
     lines = []
-    obsids = sc.obsids['values']
-    for obsid in obsids:
-        lines.append('obsid = {}'.format(obsid))
+    for obsid, checks in sc.get_checks_by_obsid().items():
+        for check in checks:
+            all_ok &= check.success
+            for msg in check.messages:
+                lines.append('{} {}: {}'.format(obsid, msg['category'], msg['text']))
 
     return all_ok, lines, sc
 
@@ -47,8 +49,8 @@ def test_nov0512():
     # NOV0512 with added CHARACTERISTICS.
     ok, lines, sc = run_hopper(backstop_file, or_list_file,
                                ofls_characteristics_file, initial_state)
-    assert ('13871: science target attitude RA=160.63125 Dec=5.04381 '
-            'different from OR list for obsid 13871 by 3.6 arcsec' in lines)
+    assert lines == ['13871 error: science target attitude RA=160.63125 Dec=5.04381 '
+                         'different from OR list by 3.6 arcsec']
     assert not ok
 
     # NOV0512 the way it really is.  This is how old loads with no characteristics will

@@ -49,7 +49,7 @@ class CmdActionMeta(type):
         # Auto-generate command trigger for actions
         if cls.type == 'action':
             cls.cmd_trigger = {'action': cls.name}
-            
+
         # Checks are captured by name in a dict instead of a list.  This is
         # because checks are processed separately after the main run of commands
         # and therefore they can simply be looked up instead of requiring a
@@ -340,6 +340,6 @@ class AttitudeConsistentWithObsreqCheck(Check):
             sep = targ.separation(cmd_targ)
             if sep > 1. * u.arcsec:
                 message = ('science target attitude RA={:.5f} Dec={:.5f} different '
-                           'from OR list for obsid {} by {:.1f}'
-                           .format(q_targ.ra, q_targ.dec, obsid, sep.to('arcsec')))
+                           'from OR list by {:.1f}'
+                           .format(q_targ.ra, q_targ.dec, sep.to('arcsec')))
                 self.add_message('error', message)
