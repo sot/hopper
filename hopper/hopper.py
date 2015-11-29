@@ -42,10 +42,11 @@ class StateValue(object):
         self.values.append({'value': value, 'date': date})
 
         if hasattr(SC, 'states'):
-            if SC.state['date'] != date:
-                SC.states.append(copy(SC.state))
-                SC.state['date'] = date
-            SC.state[self.name] = value
+            states = SC.states
+            if states[-1]['date'] != date:
+                states.append(copy(states[-1]))
+                states[-1]['date'] = date
+            states[-1][self.name] = value
 
 
 class SpacecraftState(object):
@@ -184,8 +185,7 @@ class SpacecraftState(object):
         else:
             raise ValueError('illegal value of sim_tsc: {}'.format(self.simpos))
 
-    @property
-    def state(self):
+    def state(self, date=None):
         return self.states[-1]
 
 

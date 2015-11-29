@@ -94,7 +94,28 @@ class Check(CmdActionCheck):
     type = 'check'
 
     def __init__(self, date):
+        self.obsid = self.SC.obsid
         self.date = date
+        self.messages = []
+
+    def add_message(self, category, text):
+        self.messages.append({'category': category, 'text': text})
+
+    @property
+    def warnings(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'warning']
+
+    @property
+    def errors(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'error']
+
+    @property
+    def infos(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'info']
+
+    @property
+    def success(self):
+        return len(self.errors) == 0
 
 
 class StateValueCmd(Cmd):
@@ -279,34 +300,23 @@ class AttitudeConsistentWithObsreqCheck(Check):
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
     the OR target attitude.
     """
+    description = 'Science target attitude matches OR list for obsid'
 
     def action(self, cmd=None):
         SC = self.SC
         obsid = SC.obsid
-        check = {'name': self.name,
-                 'date': self.date}
-
-        # TODO refactor to set variables ok, skip, message throughout then `check` at end
 
         if SC.characteristics is None:
-            check.update({'ok': True,
-                          'skip': True,
-                          'message': 'no Characteristics provided'})
+            self.add_message('warning', 'no Characteristics provided')
 
         elif SC.obsreqs is None:
-            check.update({'ok': True,
-                          'skip': True,
-                          'message': 'no OR list provided'})
+            self.add_message('warning', 'no OR list provided')
 
         elif obsid not in SC.obsreqs:
-            check.update({'ok': False,
-                          'skip': True,
-                          'message': 'obsid {} not in OR list'.format(obsid)})
+            self.add_message('error', 'obsid {} not in OR list'.format(obsid))
 
         elif 'target_ra' not in SC.obsreqs[obsid]:
-            check.update({'ok': False,
-                          'skip': True,
-                          'message': 'obsid {} does not have RA/Dec in OR'.format(obsid)})
+            self.add_message('error', 'obsid {} does not have RA/Dec in OR'.format(obsid))
 
         else:
             obsreq = SC.obsreqs[obsid]
@@ -323,14 +333,8 @@ class AttitudeConsistentWithObsreqCheck(Check):
             cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
 
             sep = targ.separation(cmd_targ)
-            if sep < 1. * u.arcsec:
-                ok = True
-                message = 'science target attitude matches OR list for obsid {}'.format(obsid)
-            else:
-                ok = False
+            if sep > 1. * u.arcsec:
                 message = ('science target attitude RA={:.5f} Dec={:.5f} different '
                            'from OR list for obsid {} by {:.1f}'
                            .format(q_targ.ra, q_targ.dec, obsid, sep.to('arcsec')))
-            check.update({'ok': ok, 'message': message})
-
-        self.result = check
+                self.add_message('error', message)
