@@ -2,7 +2,6 @@
 """
 from __future__ import print_function, division, absolute_import
 
-from collections import defaultdict
 from copy import copy
 
 import pyyaks.logger
@@ -12,7 +11,8 @@ from Quaternion import Quat
 logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
-from .cmd_action import CMD_ACTION_CLASSES
+from .cmd_action import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
+
 STATE0 = {'q_att': (0, 0, 0),
           'targ_q_att': (0, 0, 0),
           'simpos': 0,
@@ -68,7 +68,7 @@ class SpacecraftState(object):
         self.characteristics = characteristics
         self.i_curr_cmd = None
         self.curr_cmd = None
-        self.checks = defaultdict(list)
+        self.checks = []
 
         # Make the initial spacecraft "state" dict from user-supplied values, with
         # defaults provided by STATE0
@@ -85,6 +85,12 @@ class SpacecraftState(object):
 
 
     def run(self):
+        # Make this (singleton) instance of SpacecraftState available to
+        # all the CmdActionBase child classes.  This is functionally equivalent to
+        # making all the cmd_action instances "children" of self and passing
+        # self as the parent.
+        CmdActionCheck.SC = self
+
         cmd_actions = []
 
         # Run through load commands and do checks
@@ -92,11 +98,14 @@ class SpacecraftState(object):
             self.date = cmd['date']
             for cmd_action_class in CMD_ACTION_CLASSES:
                 if cmd_action_class.trigger(cmd):
-                    cmd_action = cmd_action_class(self)
+                    cmd_action = cmd_action_class()
                     cmd_action.action(cmd)
                     cmd_actions.append(cmd_action)
 
-        self.checks = dict(self.checks)
+        for check in self.checks:
+            self.date = check.date
+            check.action()
+
 
     def __getattr__(self, attr):
         if (attr.endswith('s')
@@ -108,8 +117,6 @@ class SpacecraftState(object):
             return super(SpacecraftState, self).__getattribute__(attr)
 
     def iter_cmds(self):
-        self.cmds_to_add = []
-
         for i, cmd in enumerate(self.cmds):
             self.i_curr_cmd = i
             self.curr_cmd = cmd
@@ -118,8 +125,11 @@ class SpacecraftState(object):
         self.i_curr_cmd = None
         self.curr_cmd = None
 
-        for cmd in self.cmds_to_add:
-            self.add_cmd(cmd)
+    def add_check(self, name, date):
+        """
+        Add check ``name`` at ``date``
+        """
+        self.checks.append(CHECK_CLASSES[name](date))
 
     def add_cmd(self, cmd):
         """
@@ -137,7 +147,7 @@ class SpacecraftState(object):
             # If currently iterating through commands then only add command if
             # it is *after* current command (otherwise iteration gets messed up).
             # In this case add commands after iteration is done.
-            if cmd_date < self.curr_cmd['date']:
+            if cmd_date < self.date:
                 raise ValueError('cannot insert command {} prior to current command {}'
                                  .format(cmd, self.curr_cmd))
             i_cmd0 = self.i_curr_cmd + 1

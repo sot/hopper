@@ -5,46 +5,32 @@ commands or doing checks.
 """
 
 import re
+
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-from itertools import izip
 
 import chandra_aca
 import Chandra.Maneuver
 from Chandra.Time import DateTime
 
+from .utils import as_date, un_camel_case
 
-def as_date(time):
-    return DateTime(time).date
+CMD_ACTION_CLASSES = set()
+CHECK_CLASSES = {}
 
-CMD_ACTION_CLASSES = []
-
-
-def un_camel_case(cc_name):
-    chars = []
-    for c0, c1 in izip(cc_name[:-1], cc_name[1:]):
-        # Lower case followed by Upper case then insert "_"
-        chars.append(c0.lower())
-        if c0.lower() == c0 and c1.lower() != c1:
-            chars.append('_')
-    chars.append(c1.lower())
-
-    return ''.join(chars)
-
-
-class CmdBaseMeta(type):
+class CmdActionMeta(type):
     """Metaclass to register CmdAction classes and auto-generate ``name`` and
-    ``cmd_trigger`` class attributes for ``Check`` and ``Action`` subclasses.
+    ``cmd_trigger`` class attributes for ``Cmd`` and ``Action`` subclasses.
 
     For example, consider the classes below::
 
-      class PcadCheck(Check):
-      class AttitudeConsistentWithObsreq(PcadCheck):
+      class PcadAction(Action):
+      class (PcadAction):
 
     This code will result in::
 
       name = 'pcad.attitude_consistent_with_obsreq'
-      cmd_trigger = {'check': 'pcad.attitude_consistent_with_obsreq'}
+      cmd_trigger = {'action': 'pcad.attitude_consistent_with_obsreq'}
 
     The class name can optionally end in Check or Action (and this gets
     stripped out from the ``name``), but the class base for checks or actions
@@ -52,26 +38,36 @@ class CmdBaseMeta(type):
 
     """
     def __init__(cls, name, bases, dct):
-        parents = []
-        for mro_class in cls.mro():
-            mro_name = re.sub(r'(Check|Action)$', '', mro_class.__name__)
-            if mro_name == '':  # Final Check or Action class
-                cls.name = '.'.join(reversed(parents))
-                cls.cmd_trigger = {mro_class.__name__.lower(): cls.name}
-                break
-            parents.append(un_camel_case(mro_name))
+        super(CmdActionMeta, cls).__init__(name, bases, dct)
 
-        if hasattr(cls, 'cmd_trigger'):
-            CMD_ACTION_CLASSES.append(cls)
+        if 'abstract' in dct:
+            return
 
-        super(CmdBaseMeta, cls).__init__(name, bases, dct)
+        name = re.sub(r'(Check|Action|Cmd)$', '', name)
+        cls.name = '.'.join(cls.subsystems + [un_camel_case(name)])
+
+        # Auto-generate command trigger for actions
+        if cls.type == 'action':
+            cls.cmd_trigger = {'action': cls.name}
+            
+        # Checks are captured by name in a dict instead of a list.  This is
+        # because checks are processed separately after the main run of commands
+        # and therefore they can simply be looked up instead of requiring a
+        # linear search.
+        if cls.type == 'check':
+            CHECK_CLASSES[cls.name] = cls
+
+        else:
+            CMD_ACTION_CLASSES.add(cls)
 
 
-class CmdBase(object):
-    __metaclass__ = CmdBaseMeta
+class CmdActionCheck(object):
+    __metaclass__ = CmdActionMeta
+    abstract = True
+    subsystems = []
 
-    def __init__(self, SC):
-        self.SC = SC  # global spacecraft state
+    def set_SC(cls, SC):
+        cls.SC = SC
 
     @classmethod
     def trigger(cls, cmd):
@@ -79,19 +75,29 @@ class CmdBase(object):
                  for key, val in cls.cmd_trigger.iteritems())
         return ok
 
-    def action(self):
+    def action(self, cmd=None):
         raise NotImplemented()
 
 
-class Check(CmdBase):
-    pass
+class Cmd(CmdActionCheck):
+    abstract = True
+    type = 'cmd'
 
 
-class Action(CmdBase):
-    pass
+class Action(CmdActionCheck):
+    abstract = True
+    type = 'action'
 
 
-class StateValueCmd(CmdBase):
+class Check(CmdActionCheck):
+    abstract = True
+    type = 'check'
+
+    def __init__(self, date):
+        self.date = date
+
+
+class StateValueCmd(Cmd):
     """
     Set a state value from a single key in the cmd dict.
 
@@ -101,6 +107,8 @@ class StateValueCmd(CmdBase):
       - state_name
       - cmd_key (can also be a tuple of keys)
     """
+    abstract = True
+
     def action(self, cmd):
         if isinstance(self.cmd_key, tuple):
             value = tuple(cmd[key] for key in self.cmd_key)
@@ -109,7 +117,7 @@ class StateValueCmd(CmdBase):
         setattr(self.SC, self.state_name, value)
 
 
-class FixedStateValueCmd(CmdBase):
+class FixedStateValueCmd(Cmd):
     """
     Base class for setting a single state value to something fixed.
     These class attributes are required:
@@ -118,6 +126,8 @@ class FixedStateValueCmd(CmdBase):
       state_name = None
       state_value = None
     """
+    abstract = True
+
     def action(self, cmd):
         setattr(self.SC, self.state_name, self.state_value)
 
@@ -153,7 +163,7 @@ class ObsidCmd(StateValueCmd):
     cmd_key = 'id'
 
 
-class ManeuverCmd(CmdBase):
+class ManeuverCmd(Cmd):
     cmd_trigger = {'tlmsid': 'AOMANUVR'}
 
     def action(self, cmd):
@@ -195,7 +205,7 @@ class NmmModeCmd(FixedStateValueCmd):
     state_value = 'NMAN'
 
 
-class NpntModeCmd(CmdBase):
+class NpntModeCmd(Cmd):
     cmd_trigger = None  # custom trigger
 
     @classmethod
@@ -216,8 +226,7 @@ class NpntModeCmd(CmdBase):
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
-            SC.add_cmd({'date': cmd['date'],
-                        'check': 'attitude_consistent_with_obsreq'})
+            SC.add_check('attitude_consistent_with_obsreq', date=cmd['date'])
 
         # TODO: add commands to kick off ACA sequence with star acquisition
         # and checking.
@@ -271,11 +280,11 @@ class AttitudeConsistentWithObsreqCheck(Check):
     the OR target attitude.
     """
 
-    def action(self, cmd):
+    def action(self, cmd=None):
         SC = self.SC
         obsid = SC.obsid
         check = {'name': self.name,
-                 'date': cmd['date']}
+                 'date': self.date}
 
         # TODO refactor to set variables ok, skip, message throughout then `check` at end
 
@@ -324,4 +333,4 @@ class AttitudeConsistentWithObsreqCheck(Check):
                            .format(q_targ.ra, q_targ.dec, obsid, sep.to('arcsec')))
             check.update({'ok': ok, 'message': message})
 
-        SC.checks[obsid].append(check)
+        self.result = check
