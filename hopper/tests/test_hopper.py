@@ -24,22 +24,9 @@ def run_hopper(backstop_file, or_list_file=None,
 
     # Iterate through obsids in order
     lines = []
-    obsids = [obj['value'] for obj in sc.obsids]
+    obsids = sc.obsids['values']
     for obsid in obsids:
-        if obsid not in sc.checks:
-            continue
-
-        checks = sc.checks[obsid]
-        for check in checks:
-            if check['name'] == hopper.cmd_action.AttitudeConsistentWithObsreqCheck.name:
-                ok = check['ok']
-                all_ok &= ok
-                if check.get('skip'):
-                    message = 'SKIPPED: {}'.format(check['message'])
-                else:
-                    message = 'OK' if ok else check['message']
-                line = '{:5d}: {}'.format(obsid, message)
-                lines.append(line)
+        lines.append('obsid = {}'.format(obsid))
 
     return all_ok, lines, sc
 

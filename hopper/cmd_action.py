@@ -117,6 +117,11 @@ class Check(CmdActionCheck):
     def success(self):
         return len(self.errors) == 0
 
+    def __repr__(self):
+        out = ('<{} at {} warnings={} errors={}>'
+               .format(self.name, self.date, len(self.warnings), len(self.errors)))
+        return out
+
 
 class StateValueCmd(Cmd):
     """

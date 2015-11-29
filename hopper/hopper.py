@@ -3,6 +3,7 @@
 from __future__ import print_function, division, absolute_import
 
 from copy import copy
+import numpy as np
 
 import pyyaks.logger
 import parse_cm
@@ -20,33 +21,50 @@ STATE0 = {'q_att': (0, 0, 0),
           'date': '1999:001:00:00:00.000'}
 
 class StateValue(object):
-    def __init__(self, name, init_func=None, log=True):
+    def __init__(self, name, init_func=None):
         self.name = name
-        self.value = None
         self.values = []
-        self.log = log
+        self.dates = np.ndarray(shape=(0,), dtype='S21')
         self.init_func = init_func
 
     def __get__(self, SC, cls):
-        return self.value
+        """
+        Get the value at the last sample which occurs before or at SC.date.
+        For instance::
+
+          idx   = [0, 1, 2, 3, 4]
+                   |  |  |  |  |
+          dates = [0, 1, 2, 2, 3]  # idx = 3 for date=2
+          dates = [0, 1, 2, 2, 3]  # idx = -1 for date=-0.1 (no value)
+          dates = [0, 1, 2, 2, 3]  # idx = 1 for date=1.0
+          dates = [0, 1, 2, 2, 3]  # idx = 1 for date=1.1
+        """
+        # No samples defined yet, return None
+        if len(self.dates) == 0:
+            return None
+
+        # Return last sample before or at the current SC date
+        date = SC.date
+        idx = np.searchsorted(self.dates, date, side='right') - 1
+        if idx >= 0:
+            return self.values[idx]
+        else:
+            raise IndexError('first state sample for {} is at {} (vs. SC.date={})'
+                             .format(self.name, self.dates[0], date))
 
     def __set__(self, SC, value):
         date = SC.date
 
-        if self.log:
-            logger.debug('{} {}={}'.format(date, self.name, value))
+        logger.debug('{} {}={}'.format(date, self.name, value))
 
         if self.init_func:
             value = self.init_func(value)
         self.value = value
-        self.values.append({'value': value, 'date': date})
+        self.values.append(value)
+        self.dates.resize(len(self.values))
+        self.dates[-1] = date
 
-        if hasattr(SC, 'states'):
-            states = SC.states
-            if states[-1]['date'] != date:
-                states.append(copy(states[-1]))
-                states[-1]['date'] = date
-            states[-1][self.name] = value
+        SC.set_state_value(date, self.name, value)
 
 
 class SpacecraftState(object):
@@ -109,11 +127,13 @@ class SpacecraftState(object):
 
 
     def __getattr__(self, attr):
+        cls_dict = self.__class__.__dict__
+        attr1 = attr[:-1]
         if (attr.endswith('s')
-                and attr[:-1] in self.__class__.__dict__
-                and isinstance(self.__class__.__dict__[attr[:-1]], StateValue)):
-            values = self.__class__.__dict__[attr[:-1]].values
-            return values
+                and attr1 in cls_dict
+                and isinstance(cls_dict[attr1], StateValue)):
+            return {'values': cls_dict[attr1].values,
+                    'dates': cls_dict[attr1].dates}
         else:
             return super(SpacecraftState, self).__getattribute__(attr)
 
@@ -172,6 +192,18 @@ class SpacecraftState(object):
         Set the initial state of SC.  For initial testing just use
         stub values.
         """
+
+    def set_state_value(self, date, name, value):
+        # During first initialization of SC state values there is no state so
+        # just ignore these calls.
+        if not hasattr(self, 'states'):
+            return
+
+        states = self.states
+        if states[-1]['date'] != date:
+            states.append(copy(states[-1]))
+            states[-1]['date'] = date
+        states[-1][name] = value
 
     @property
     def detector(self):
