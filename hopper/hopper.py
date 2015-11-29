@@ -187,12 +187,6 @@ class SpacecraftState(object):
         """
         return self.obsid < 40000
 
-    def set_initial_state(self):
-        """
-        Set the initial state of SC.  For initial testing just use
-        stub values.
-        """
-
     def set_state_value(self, date, name, value):
         # During first initialization of SC state values there is no state so
         # just ignore these calls.
