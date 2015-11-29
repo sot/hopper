@@ -14,6 +14,7 @@ logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 from .cmd_action import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
+from . import check
 
 STATE0 = {'q_att': (0, 0, 0),
           'targ_q_att': (0, 0, 0),
