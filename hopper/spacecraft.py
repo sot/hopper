@@ -82,8 +82,6 @@ class SpacecraftState(object):
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
-        self.i_curr_cmd = None
-        self.curr_cmd = None
         self.checks = []
 
         # Make the initial spacecraft "state" dict from user-supplied values, with
@@ -110,8 +108,9 @@ class SpacecraftState(object):
         cmd_actions = []
 
         # Run through load commands and do checks
-        for cmd in self.iter_cmds():
+        for self.i_cmd, cmd in enumerate(self.cmds):
             self.date = cmd['date']
+
             for cmd_action_class in CMD_ACTION_CLASSES:
                 if cmd_action_class.trigger(cmd):
                     cmd_action = cmd_action_class()
@@ -134,15 +133,6 @@ class SpacecraftState(object):
 
         return super(SpacecraftState, self).__getattribute__(attr)
 
-    def iter_cmds(self):
-        for i, cmd in enumerate(self.cmds):
-            self.i_curr_cmd = i
-            self.curr_cmd = cmd
-            yield cmd
-
-        self.i_curr_cmd = None
-        self.curr_cmd = None
-
     def add_check(self, name, date):
         """
         Add check ``name`` at ``date``
@@ -159,19 +149,18 @@ class SpacecraftState(object):
 
         logger.debug('Adding command {}'.format(cmd))
 
-        if self.curr_cmd is None:
-            i_cmd0 = 0
-        else:
-            # If currently iterating through commands then only add command if
-            # it is *after* current command (otherwise iteration gets messed up).
-            # In this case add commands after iteration is done.
-            if cmd_date < self.date:
-                raise ValueError('cannot insert command {} prior to current command {}'
-                                 .format(cmd, self.curr_cmd))
-            i_cmd0 = self.i_curr_cmd + 1
+        # Prevent adding command before current command since the command
+        # interpreter is a one-pass process.
+        if cmd_date < self.date:
+            raise ValueError('cannot insert command {} prior to current command {}'
+                             .format(cmd, self.curr_cmd))
 
+        # Insert command at first place where new command date is strictly
+        # less than existing command date.  This implementation is linear, and
+        # could be improved, though in practice commands are often inserted
+        # close to the original.
         cmds = self.cmds
-        for i_cmd in xrange(i_cmd0, len(cmds)):
+        for i_cmd in xrange(self.i_cmd + 1, len(cmds)):
             if cmd_date < cmds[i_cmd]['date']:
                 cmds.insert(i_cmd, cmd)
                 break
