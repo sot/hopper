@@ -99,6 +99,10 @@ class SpacecraftState(object):
 
 
     def run(self):
+        """
+        Interpret the sequence of commands ``self.cmds``, triggering an action
+        for relevant commands.
+        """
         # Make this (singleton) instance of SpacecraftState available to
         # all the CmdActionBase child classes.  This is functionally equivalent to
         # making all the cmd_action instances "children" of self and passing
@@ -113,13 +117,15 @@ class SpacecraftState(object):
 
             for cmd_action_class in CMD_ACTION_CLASSES:
                 if cmd_action_class.trigger(cmd):
-                    cmd_action = cmd_action_class()
-                    cmd_action.action(cmd)
+                    cmd_action = cmd_action_class(cmd)
+                    cmd_action.run()
                     cmd_actions.append(cmd_action)
 
+        # Sort the checks by date and then execute each one
+        self.checks = sorted(self.checks, key=lambda x: x.date)
         for check in self.checks:
             self.date = check.date
-            check.action()
+            check.run()
 
 
     def __getattr__(self, attr):

@@ -51,7 +51,7 @@ class AttitudeConsistentWithObsreqCheck(Check):
     """
     description = 'Science target attitude matches OR list for obsid'
 
-    def action(self, cmd=None):
+    def run(self):
         SC = self.SC
         obsid = SC.obsid
 

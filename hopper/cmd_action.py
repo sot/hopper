@@ -62,6 +62,9 @@ class CmdActionCheck(object):
     abstract = True
     subsystems = []
 
+    def __init__(self, cmd):
+        self.cmd = cmd
+
     def set_SC(cls, SC):
         cls.SC = SC
 
@@ -71,7 +74,7 @@ class CmdActionCheck(object):
                  for key, val in cls.cmd_trigger.iteritems())
         return ok
 
-    def action(self, cmd=None):
+    def run(self):
         raise NotImplemented()
 
 
@@ -97,11 +100,11 @@ class StateValueCmd(Cmd):
     """
     abstract = True
 
-    def action(self, cmd):
+    def run(self):
         if isinstance(self.cmd_key, tuple):
-            value = tuple(cmd[key] for key in self.cmd_key)
+            value = tuple(self.cmd[key] for key in self.cmd_key)
         else:
-            value = cmd[self.cmd_key]
+            value = self.cmd[self.cmd_key]
         setattr(self.SC, self.state_name, value)
 
 
@@ -116,7 +119,7 @@ class FixedStateValueCmd(Cmd):
     """
     abstract = True
 
-    def action(self, cmd):
+    def run(self):
         setattr(self.SC, self.state_name, self.state_value)
 
 
@@ -154,10 +157,10 @@ class ObsidCmd(StateValueCmd):
 class ManeuverCmd(Cmd):
     cmd_trigger = {'tlmsid': 'AOMANUVR'}
 
-    def action(self, cmd):
+    def run(self):
         SC = self.SC
         atts = Chandra.Maneuver.attitudes(SC.q_att, SC.targ_q_att,
-                                          step=300, tstart=cmd['date'])
+                                          step=300, tstart=self.cmd['date'])
         for time, q1, q2, q3, q4, pitch in atts:
             date = DateTime(time).date
             SC.add_cmd({'date': date,
@@ -201,20 +204,20 @@ class NpntModeCmd(Cmd):
         ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
         return ok
 
-    def action(self, cmd):
+    def run(self):
         SC = self.SC
         SC.pcad_mode = 'NPNT'
 
         # Only do subsequent checks for auto transition to NPM following
         # a maneuver.  Other NPM transitions (following NPM dumps, mech moves)
         # don't generate checks.
-        if cmd['tlmsid'] != 'nmm_npm_transition':
+        if self.cmd['tlmsid'] != 'nmm_npm_transition':
             return
 
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
-            SC.add_check('attitude_consistent_with_obsreq', date=cmd['date'])
+            SC.add_check('attitude_consistent_with_obsreq', date=self.cmd['date'])
 
         # TODO: add commands to kick off ACA sequence with star acquisition
         # and checking.
@@ -255,7 +258,7 @@ class AddManeuverAction(Action):
     at maneuver start but evaluated maneuver end and so the obsid will be
     correct.
     """
-    def action(self, cmd):
-        maneuver = cmd['maneuver']
+    def run(self):
+        maneuver = self.cmd['maneuver']
         maneuver['final']['obsid'] = self.SC.obsid
-        self.SC.maneuver = cmd['maneuver']
+        self.SC.maneuver = maneuver
