@@ -5,6 +5,7 @@ commands or doing checks.
 """
 
 import re
+from itertools import izip
 
 import Chandra.Maneuver
 from Chandra.Time import DateTime
@@ -101,11 +102,20 @@ class StateValueCmd(Cmd):
     abstract = True
 
     def run(self):
-        if isinstance(self.cmd_key, tuple):
-            value = tuple(self.cmd[key] for key in self.cmd_key)
+        state_names = (self.state_name if isinstance(self.state_name, (tuple, list))
+                       else (self.state_name,))
+
+        if isinstance(self.cmd_key, (tuple, list)):
+            values = tuple(self.cmd[key] for key in self.cmd_key)
         else:
-            value = self.cmd[self.cmd_key]
-        setattr(self.SC, self.state_name, value)
+            values = (self.cmd[self.cmd_key],)
+
+        if len(values) != len(state_names):
+            raise ValueError('length of values {} != length of state_names {}'
+                             .format(len(values), len(state_names)))
+
+        for state_name, value in izip(state_names, values):
+            setattr(self.SC, state_name, value)
 
 
 class FixedStateValueCmd(Cmd):
@@ -144,7 +154,7 @@ class TargQAttCmd(StateValueCmd):
     """
     cmd_trigger = {'type': 'MP_TARGQUAT',
                    'tlmsid': 'AOUPTARQ'}
-    state_name = 'targ_q_att'
+    state_name = 'targ_q1', 'targ_q2', 'targ_q3', 'targ_q4'
     cmd_key = 'q1', 'q2', 'q3', 'q4'
 
 
@@ -159,7 +169,8 @@ class ManeuverCmd(Cmd):
 
     def run(self):
         SC = self.SC
-        atts = Chandra.Maneuver.attitudes(SC.q_att, SC.targ_q_att,
+        atts = Chandra.Maneuver.attitudes([SC.q1, SC.q2, SC.q3, SC.q4],
+                                          [SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4],
                                           step=300, tstart=self.cmd['date'])
         for time, q1, q2, q3, q4, pitch in atts:
             date = DateTime(time).date
@@ -233,7 +244,7 @@ class SetQAttAction(Action, StateValueCmd):
     """
     Action to update current attitude quaternion
     """
-    state_name = 'q_att'
+    state_name = 'q1', 'q2', 'q3', 'q4'
     cmd_key = 'q1', 'q2', 'q3', 'q4'
 
 

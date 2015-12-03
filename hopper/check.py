@@ -6,6 +6,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 import chandra_aca
+from Quaternion import Quat
 
 from .cmd_action import CmdActionCheck
 
@@ -74,7 +75,7 @@ class AttitudeConsistentWithObsreqCheck(Check):
             # to science target attitude
             y_off, z_off = obsreq['target_offset_y'], obsreq['target_offset_z']
             targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
-            pcad = SC.targ_q_att
+            pcad = Quat([SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4])
             detector = SC.detector
             si_align = SC.characteristics['odb_si_align'][detector]
 

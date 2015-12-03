@@ -8,25 +8,26 @@ import numpy as np
 
 import pyyaks.logger
 import parse_cm
-from Quaternion import Quat
 
 logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 from .cmd_action import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
 
-STATE0 = {'q_att': (0, 0, 0),
-          'targ_q_att': (0, 0, 0),
+STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
+          'targ_q1': 0.0, 'targ_q2': 0.0, 'targ_q3':0.0, 'targ_q4': 1.0,
           'simpos': 0,
           'simfa_pos': 0,
           'date': '1999:001:00:00:00.000'}
 
 class StateValue(object):
-    def __init__(self, name, init_func=None):
+    def __init__(self, name):
         self.name = name
+        self.clear()
+
+    def clear(self):
         self.values = []
         self.dates = np.ndarray(shape=(0,), dtype='S21')
-        self.init_func = init_func
 
     def __get__(self, SC, cls):
         """
@@ -54,8 +55,6 @@ class StateValue(object):
 
         logger.debug('{} {}={}'.format(date, self.name, value))
 
-        if self.init_func:
-            value = self.init_func(value)
         self.value = value
         self.values.append(value)
         self.dates.resize(len(self.values))
@@ -72,13 +71,21 @@ class SpacecraftState(object):
     pcad_mode = StateValue('pcad_mode')
     auto_npm_transition = StateValue('auto_npm_transition')
     maneuver = StateValue('maneuver')
-    q_att = StateValue('q_att', init_func=Quat)
-    targ_q_att = StateValue('targ_q_att', init_func=Quat)
+    q1 = StateValue('q1')
+    q2 = StateValue('q2')
+    q3 = StateValue('q3')
+    q4 = StateValue('q4')
+    targ_q1 = StateValue('targ_q1')
+    targ_q2 = StateValue('targ_q2')
+    targ_q3 = StateValue('targ_q3')
+    targ_q4 = StateValue('targ_q4')
 
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
-        for attr in self.__class__.__dict__.values():
+        class_dict = self.__class__.__dict__
+
+        for attr in class_dict.values():
             if isinstance(attr, StateValue):
-                attr.values = []
+                attr.clear()
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
@@ -89,14 +96,17 @@ class SpacecraftState(object):
         state0 = copy(STATE0)
         state0.update(initial_state or {})
 
-        self.date = state0['date']
-        self.states = [{attr: getattr(self, attr) for attr, val in self.__dict__.items()
+        self.date = state0.pop('date')
+        self.states = [{attr: getattr(self, attr) for attr, val in class_dict.items()
                         if isinstance(val, StateValue)}]
         self.states[0]['date'] = self.date
 
         for key, val in state0.items():
-            setattr(self, key, val)
-
+            if key in class_dict and isinstance(class_dict[key], StateValue):
+                setattr(self, key, val)
+            else:
+                raise AttributeError('key {} is not a StateValue class attribute'
+                                     .format(key))
 
     def run(self):
         """
