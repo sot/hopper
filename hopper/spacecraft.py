@@ -109,7 +109,7 @@ class SpacecraftState(object):
         # self as the parent.
         CmdActionCheck.SC = self
 
-        cmd_actions = []
+        self.cmd_actions = []
 
         # Run through load commands and do checks
         for self.i_cmd, cmd in enumerate(self.cmds):
@@ -119,14 +119,13 @@ class SpacecraftState(object):
                 if cmd_action_class.trigger(cmd):
                     cmd_action = cmd_action_class(cmd)
                     cmd_action.run()
-                    cmd_actions.append(cmd_action)
+                    self.cmd_actions.append(cmd_action)
 
         # Sort the checks by date and then execute each one
         self.checks = sorted(self.checks, key=lambda x: x.date)
         for check in self.checks:
             self.date = check.date
             check.run()
-
 
     def __getattr__(self, attr):
         cls_dict = self.__class__.__dict__
@@ -145,7 +144,7 @@ class SpacecraftState(object):
         """
         self.checks.append(CHECK_CLASSES[name](date))
 
-    def add_cmd(self, cmd):
+    def add_cmd(self, **cmd):
         """
         Add command in correct order to the commands list.
 
@@ -172,6 +171,15 @@ class SpacecraftState(object):
                 break
         else:
             cmds.append(cmd)
+
+    def add_action(self, action, date, **kwargs):
+        """
+        Thin wrapper around add_cmd, but specific to adding an action.
+
+        :param action: name of the action
+        :param date: execution date for the action
+        """
+        self.add_cmd(action=action, date=date, **kwargs)
 
     def is_obs_req(self):
         """

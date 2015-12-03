@@ -163,31 +163,25 @@ class ManeuverCmd(Cmd):
                                           step=300, tstart=self.cmd['date'])
         for time, q1, q2, q3, q4, pitch in atts:
             date = DateTime(time).date
-            SC.add_cmd({'date': date,
-                        'action': 'update_q_att',
-                        'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4})
-            SC.add_cmd({'date': date,
-                        'action': 'update_pitch',
-                        'pitch': pitch})
+            SC.add_action('set_qatt', date, q1=q1, q2=q2, q3=q3, q4=q4)
+            SC.add_action('set_pitch', date, pitch=pitch)
 
         att0 = atts[0]
         att1 = atts[-1]
         maneuver = {'initial': {'date': as_date(att0['time']),
-                                'q_att': (att0['q1'], att0['q2'], att0['q3'], att0['q4']),
-                                'obsid': SC.obsid},
+                                'obsid': SC.obsid,
+                                'q1': att0['q1'], 'q2': att0['q2'], 'q3': att0['q3'], 'q4':att0['q4']},
                     'final': {'date': as_date(att1['time']),
-                              'q_att': (att1['q1'], att1['q2'], att1['q3'], att1['q4'])},
+                              # final obsid filled in at the end of the maneuver
+                              'q1': att1['q1'], 'q2': att1['q2'], 'q3': att1['q3'], 'q4':att1['q4']},
                     'dur': att1['time'] - att0['time']}
 
-        SC.add_cmd({'date': maneuver['final']['date'],
-                    'action': 'add_maneuver',
-                    'maneuver': maneuver})
+        SC.add_action('add_maneuver', date=maneuver['final']['date'], maneuver=maneuver)
 
         # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
-        # at 1 second after maneuver end
+        # at 10 seconds after maneuver end
         if SC.auto_npm_transition:
-            SC.add_cmd({'date': as_date(att1['time'] + 1),
-                        'tlmsid': 'nmm_npm_transition'})
+            SC.add_action('auto_nmm_npm', as_date(att1['time'] + 10))
 
 
 class NmmModeCmd(FixedStateValueCmd):
@@ -197,22 +191,22 @@ class NmmModeCmd(FixedStateValueCmd):
 
 
 class NpntModeCmd(Cmd):
-    cmd_trigger = None  # custom trigger
+    """
+    Explicit AONPMODE command.  Most frequently NPM is entered by
+    auto-transition from NMM (via AutoNmmNpmAction).
+    """
+    cmd_trigger = {'tlmsid': 'AONPMODE'}
+    state_name = 'pcad_mode'
+    state_value = 'NPNT'
 
-    @classmethod
-    def trigger(cls, cmd):
-        ok = cmd.get('tlmsid') in ('AONPMODE', 'nmm_npm_transition')
-        return ok
-
+class AutoNmmNpmAction(Action):
+    """
+    Get to NPNT by way of an automatic transition after a maneuver.  This
+    is accompanied by acquisition of a (new) star catalog which must be checked.
+    """
     def run(self):
         SC = self.SC
         SC.pcad_mode = 'NPNT'
-
-        # Only do subsequent checks for auto transition to NPM following
-        # a maneuver.  Other NPM transitions (following NPM dumps, mech moves)
-        # don't generate checks.
-        if self.cmd['tlmsid'] != 'nmm_npm_transition':
-            return
 
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
@@ -221,6 +215,7 @@ class NpntModeCmd(Cmd):
 
         # TODO: add commands to kick off ACA sequence with star acquisition
         # and checking.
+
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
     cmd_trigger = {'tlmsid': 'AONM2NPD'}
