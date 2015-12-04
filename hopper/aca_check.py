@@ -1,10 +1,14 @@
 import re
 from collections import defaultdict
+import logging
 
 import numpy as np
 from astropy.table import Table
 
-from .cmd_action import Cmd
+from .cmd_action import Cmd, Action
+from .check import Check
+
+logger = logging.getLogger('hopper')
 
 
 class StarcatTable(Table):
@@ -32,27 +36,6 @@ class StarCatalogCmd(Cmd):
     IMNUM1= 0, YANG1= 6.09510552e-04, ZANG1= 8.97075878e-03, MAXMAG1=
     1.02187500e+01, MINMAG1= 5.79687500e+00, DIMDTS1= 20, RESTRK1= 1, IMGSZ1= 2,
     TYPE1= 2, ...
-
-    Starcheck Perl code
-
-    foreach my $i (1..16) {
-        $c->{"SIZE$i"} = $sizes[$c->{"IMGSZ$i"}];
-        $c->{"MAG$i"} = ($c->{"MINMAG$i"} + $c->{"MAXMAG$i"})/2;
-        $c->{"TYPE$i"} = ($c->{"TYPE$i"} or $c->{"MINMAG$i"} != 0 or $c->{"MAXMAG$i"} != 0)? 
-            $types[$c->{"TYPE$i"}] : 'NUL';
-        push @{$self->{mon}},$i if ($c->{"TYPE$i"} eq 'MON');
-        push @{$self->{fid}},$i if ($c->{"TYPE$i"} eq 'FID');
-        push @{$self->{acq}},$i if ($c->{"TYPE$i"} eq 'ACQ' or $c->{"TYPE$i"} eq 'BOT');
-        push @{$self->{gui}},$i if ($c->{"TYPE$i"} eq 'GUI' or $c->{"TYPE$i"} eq 'BOT');
-        $c->{"YANG$i"} *= $r2a;
-        $c->{"ZANG$i"} *= $r2a;
-        $c->{"HALFW$i"} = ($c->{"TYPE$i"} ne 'NUL')? 
-            ( 40 - 35*$c->{"RESTRK$i"} ) * $c->{"DIMDTS$i"} + 20 : 0;
-        $c->{"HALFW$i"} = $monhalfw[$c->{"IMGSZ$i"}] if ($c->{"TYPE$i"} eq 'MON');
-        $c->{"YMAX$i"} = $c->{"YANG$i"} + $c->{"HALFW$i"};
-        $c->{"YMIN$i"} = $c->{"YANG$i"} - $c->{"HALFW$i"};
-        $c->{"ZMAX$i"} = $c->{"ZANG$i"} + $c->{"HALFW$i"};
-        $c->{"ZMIN$i"} = $c->{"ZANG$i"} - $c->{"HALFW$i"};
     """
     cmd_trigger = {'tlmsid': 'AOSTRCAT'}
     subsystems = ['aca']
@@ -99,3 +82,45 @@ class StarCatalogCmd(Cmd):
         starcat['zang'].format = ".1f"
         starcat['halfw'].format = ".0f"
         self.SC.starcat = starcat
+
+
+class SetStars(Action):
+    subsystems = ['aca']
+
+    def run(self):
+        # Expensive import so do this locally
+        import agasc
+
+        q_att = self.SC.q_att
+        stars = agasc.get_agasc_cone(q_att.ra, q_att.dec, radius=1.5, date=self.SC.date)
+        ok = stars['MAG_ACA'] < 13.0
+        self.SC.stars = stars[ok]
+        logger.debug('Got %d stars for obsid %d', len(self.SC.stars), self.SC.obsid)
+
+
+class AcquisitionStarsCheck(Check):
+    subsystems = ['aca']
+
+    def run(self):
+        pass
+
+
+class GuideStarsCheck(Check):
+    subsystems = ['aca']
+
+    def run(self):
+        pass
+
+
+class MonStarsCheck(Check):
+    subsystems = ['aca']
+
+    def run(self):
+        pass
+
+
+class FidLightsCheck(Check):
+    subsystems = ['aca']
+
+    def run(self):
+        pass

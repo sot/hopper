@@ -7,8 +7,9 @@ commands or doing checks.
 import re
 from itertools import izip
 
+import astropy.units as u
 import Chandra.Maneuver
-from Chandra.Time import DateTime
+from cxotime import CxoTime
 
 from .utils import as_date, un_camel_case
 
@@ -173,26 +174,33 @@ class ManeuverCmd(Cmd):
                                           [SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4],
                                           step=300, tstart=self.cmd['date'])
         for time, q1, q2, q3, q4, pitch in atts:
-            date = DateTime(time).date
-            SC.add_action('set_qatt', date, q1=q1, q2=q2, q3=q3, q4=q4)
-            SC.add_action('set_pitch', date, pitch=pitch)
+            SC.add_action('set_qatt', date=time, q1=q1, q2=q2, q3=q3, q4=q4)
+            SC.add_action('set_pitch', date=time, pitch=pitch)
 
         att0 = atts[0]
         att1 = atts[-1]
-        maneuver = {'initial': {'date': as_date(att0['time']),
+        time0 = CxoTime(att0['time'])
+        time1 = CxoTime(att1['time'])
+        maneuver = {'initial': {'date': time0.date,
                                 'obsid': SC.obsid,
                                 'q1': att0['q1'], 'q2': att0['q2'], 'q3': att0['q3'], 'q4':att0['q4']},
-                    'final': {'date': as_date(att1['time']),
+                    'final': {'date': time1.date,
                               # final obsid filled in at the end of the maneuver
                               'q1': att1['q1'], 'q2': att1['q2'], 'q3': att1['q3'], 'q4':att1['q4']},
-                    'dur': att1['time'] - att0['time']}
+                    'dur': round((time1 - time0).sec, 3)}
 
-        SC.add_action('add_maneuver', date=maneuver['final']['date'], maneuver=maneuver)
+        # Add the summary dict of maneuver info as a spacecraft state
+        SC.maneuver = maneuver
+
+        # Set the maneuver obsid at the end of the maneuver
+        SC.add_action('set_maneuver_obsid', date=maneuver['final']['date'])
 
         # If NMM to NPM auto-transition is enabled (AONM2NPE) then schedule NPM
-        # at 10 seconds after maneuver end
+        # at maneuver end.  In reality it happens a bit later, but for checking
+        # commands we take the most conservative approach and assume everything
+        # happens immediately.
         if SC.auto_npm_transition:
-            SC.add_action('auto_nmm_npm', as_date(att1['time'] + 10))
+            SC.add_action('auto_npm_with_star_checking', time1)
 
 
 class NmmModeCmd(FixedStateValueCmd):
@@ -214,7 +222,7 @@ class NpntModeCmd(FixedStateValueCmd):
 # ACTIONS
 #######################################################################
 
-class AutoNmmNpmAction(Action):
+class AutoNpmWithStarCheckingAction(Action):
     """
     Get to NPNT by way of an automatic transition after a maneuver.  This
     is accompanied by acquisition of a (new) star catalog which must be checked.
@@ -223,13 +231,21 @@ class AutoNmmNpmAction(Action):
         SC = self.SC
         SC.pcad_mode = 'NPNT'
 
+        npm_date = CxoTime(self.cmd['date'])
+
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
             SC.add_check('attitude_consistent_with_obsreq', date=self.cmd['date'])
 
-        # TODO: add commands to kick off ACA sequence with star acquisition
-        # and checking.
+        # Get the field stars that the ACA is viewing
+        SC.add_action('aca.set_stars', npm_date)
+
+        # Check star catalog
+        SC.add_check('aca.acquisition_stars', npm_date)
+        SC.add_check('aca.guide_stars', npm_date)
+        SC.add_check('aca.mon_stars', npm_date)
+        SC.add_check('aca.fid_lights', npm_date)
 
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
@@ -260,15 +276,13 @@ class SetPitchAction(Action, StateValueCmd):
     cmd_key = 'pitch'
 
 
-class AddManeuverAction(Action):
+class SetManeuverObsid(Action):
     """
-    Add a dict that records aggregate information about a maneuver.
+    Set the obsid for the current maneuver to the current obsid.
 
     This is an example of a delayed action since this command is injected
     at maneuver start but evaluated maneuver end and so the obsid will be
     correct.
     """
     def run(self):
-        maneuver = self.cmd['maneuver']
-        maneuver['final']['obsid'] = self.SC.obsid
-        self.SC.maneuver = maneuver
+        self.SC.maneuver['final']['obsid'] = self.SC.obsid

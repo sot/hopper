@@ -8,8 +8,11 @@ import numpy as np
 
 import pyyaks.logger
 import parse_cm
+from Quaternion import Quat
 
-logger = pyyaks.logger.get_logger(name=__file__, level=pyyaks.logger.INFO,
+from .utils import as_date
+
+logger = pyyaks.logger.get_logger(name='hopper', level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
 from .cmd_action import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
@@ -53,7 +56,7 @@ class StateValue(object):
     def __set__(self, SC, value):
         date = SC.date
 
-        logger.debug('{} {}={}'.format(date, self.name, value))
+        logger.debug('%s %s=%s', date, self.name, value)
 
         self.value = value
         self.values.append(value)
@@ -80,6 +83,7 @@ class SpacecraftState(object):
     targ_q3 = StateValue('targ_q3')
     targ_q4 = StateValue('targ_q4')
     starcat = StateValue('starcat')
+    stars = StateValue('stars')
 
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         class_dict = self.__class__.__dict__
@@ -149,12 +153,6 @@ class SpacecraftState(object):
 
         return super(SpacecraftState, self).__getattribute__(attr)
 
-    def add_check(self, name, date):
-        """
-        Add check ``name`` at ``date``
-        """
-        self.checks.append(CHECK_CLASSES[name](date))
-
     def add_cmd(self, **cmd):
         """
         Add command in correct order to the commands list.
@@ -163,7 +161,7 @@ class SpacecraftState(object):
         """
         cmd_date = cmd['date']
 
-        logger.debug('Adding command {}'.format(cmd))
+        logger.debug('Adding command %s', cmd)
 
         # Prevent adding command before current command since the command
         # interpreter is a one-pass process.
@@ -190,7 +188,17 @@ class SpacecraftState(object):
         :param action: name of the action
         :param date: execution date for the action
         """
-        self.add_cmd(action=action, date=date, **kwargs)
+        # Quick test that date is (most likely) in the Year DOY format.
+        # Creating a full CxoTime object is relatively expensive so don't
+        # do that here and instead rely on other time formats having a
+        # different default length.
+        self.add_cmd(action=action, date=as_date(date), **kwargs)
+
+    def add_check(self, name, date):
+        """
+        Add check ``name`` at ``date``
+        """
+        self.checks.append(CHECK_CLASSES[name](as_date(date)))
 
     def is_obs_req(self):
         """
@@ -199,16 +207,32 @@ class SpacecraftState(object):
         return self.obsid < 40000
 
     def set_state_value(self, date, name, value):
+        """
+        Update the current self.states list to reflect the new setting of state
+        ``name=value`` at ``date``.
+
+        :param date: date of state transition
+        :param name: name of state parameter
+        :param value: value of state parameter
+        """
         # During first initialization of SC state values there is no state so
         # just ignore these calls.
         if not hasattr(self, 'states'):
             return
 
+        date = as_date(date)
         states = self.states
+
+        # Create a new state if date has changed.  Note use of shallow copy.
         if states[-1]['date'] != date:
             states.append(copy(states[-1]))
             states[-1]['date'] = date
+
         states[-1][name] = value
+
+    @property
+    def q_att(self):
+        return Quat([self.q1, self.q2, self.q3, self.q4])
 
     @property
     def detector(self):
@@ -234,6 +258,21 @@ class SpacecraftState(object):
             checks[check.obsid].append(check)
 
         return checks
+
+
+def set_log_level(level):
+    """
+    Set the global logging level
+
+    :level: log level string like "verbose" or "critical"
+    """
+    levels = 'VERBOSE DEBUG INFO WARNING CRITICAL ERROR'.split()
+    levels_map = {key.lower(): getattr(pyyaks.logger, key) for key in levels}
+    level = levels_map[level]
+
+    logger.setLevel(level)
+    for handler in logger.handlers:
+        handler.setLevel(level)
 
 
 def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
