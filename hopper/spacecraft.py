@@ -25,7 +25,6 @@ STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
 
 class StateValue(object):
     def __init__(self, name):
-        self.name = name
         self.clear()
 
     def clear(self):
@@ -66,24 +65,35 @@ class StateValue(object):
         SC.set_state_value(date, self.name, value)
 
 
+class SpacecraftStateMeta(type):
+    def __init__(cls, name, bases, dct):
+        super(SpacecraftStateMeta, cls).__init__(name, bases, dct)
+
+        for name, val in dct.items():
+            if isinstance(val, StateValue):
+                val.name = name
+
+
 class SpacecraftState(object):
-    simpos = StateValue('simpos')
-    simfa_pos = StateValue('simfa_pos')
-    obsid = StateValue('obsid')
-    pitch = StateValue('pitch')
-    pcad_mode = StateValue('pcad_mode')
-    auto_npm_transition = StateValue('auto_npm_transition')
-    maneuver = StateValue('maneuver')
-    q1 = StateValue('q1')
-    q2 = StateValue('q2')
-    q3 = StateValue('q3')
-    q4 = StateValue('q4')
-    targ_q1 = StateValue('targ_q1')
-    targ_q2 = StateValue('targ_q2')
-    targ_q3 = StateValue('targ_q3')
-    targ_q4 = StateValue('targ_q4')
-    starcat = StateValue('starcat')
-    stars = StateValue('stars')
+    __metaclass__ = SpacecraftStateMeta
+
+    simpos = StateValue()
+    simfa_pos = StateValue()
+    obsid = StateValue()
+    pitch = StateValue()
+    pcad_mode = StateValue()
+    auto_npm_transition = StateValue()
+    maneuver = StateValue()
+    q1 = StateValue()
+    q2 = StateValue()
+    q3 = StateValue()
+    q4 = StateValue()
+    targ_q1 = StateValue()
+    targ_q2 = StateValue()
+    targ_q3 = StateValue()
+    targ_q4 = StateValue()
+    starcat = StateValue()
+    stars = StateValue()
 
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         class_dict = self.__class__.__dict__
