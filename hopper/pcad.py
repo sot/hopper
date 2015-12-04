@@ -1,150 +1,17 @@
 """
-Definitions for command-action classes that interpret commands
-and perform subsequent actions which could include spawning new
-commands or doing checks.
+Commands, Actions, and checks for PCAD
 """
 
-import re
-from itertools import izip
 import numpy as np
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
+import chandra_aca
+from Quaternion import Quat
 import Chandra.Maneuver
 from cxotime import CxoTime
 
-from .utils import un_camel_case
-
-CMD_ACTION_CLASSES = set()
-CHECK_CLASSES = {}
-
-class CmdActionMeta(type):
-    """Metaclass to register CmdAction classes and auto-generate ``name`` and
-    ``cmd_trigger`` class attributes for ``Cmd`` and ``Action`` subclasses.
-
-    For example, consider the classes below::
-
-      class PcadAction(Action):
-      class (PcadAction):
-
-    This code will result in::
-
-      name = 'pcad.attitude_consistent_with_obsreq'
-      cmd_trigger = {'action': 'pcad.attitude_consistent_with_obsreq'}
-
-    The class name can optionally end in Check or Action (and this gets
-    stripped out from the ``name``), but the class base for checks or actions
-    must be ``Check`` or ``Action``, respectively.
-
-    """
-    def __init__(cls, name, bases, dct):
-        super(CmdActionMeta, cls).__init__(name, bases, dct)
-
-        if 'abstract' in dct:
-            return
-
-        name = re.sub(r'(Check|Action|Cmd)$', '', name)
-        cls.name = '.'.join(cls.subsystems + [un_camel_case(name)])
-
-        # Auto-generate command trigger for actions
-        if cls.type == 'action':
-            cls.cmd_trigger = {'action': cls.name}
-
-        # Checks are captured by name in a dict instead of a list.  This is
-        # because checks are processed separately after the main run of commands
-        # and therefore they can simply be looked up instead of requiring a
-        # linear search.
-        if cls.type == 'check':
-            CHECK_CLASSES[cls.name] = cls
-
-        else:
-            CMD_ACTION_CLASSES.add(cls)
-
-
-class CmdActionCheck(object):
-    __metaclass__ = CmdActionMeta
-    abstract = True
-    subsystems = []
-
-    def __init__(self, cmd):
-        self.cmd = cmd
-
-    def set_SC(cls, SC):
-        cls.SC = SC
-
-    @classmethod
-    def trigger(cls, cmd):
-        ok = all(cmd.get(key) == val
-                 for key, val in cls.cmd_trigger.iteritems())
-        return ok
-
-    def run(self):
-        raise NotImplemented()
-
-
-class Cmd(CmdActionCheck):
-    abstract = True
-    type = 'cmd'
-
-
-class Action(CmdActionCheck):
-    abstract = True
-    type = 'action'
-
-
-class StateValueCmd(Cmd):
-    """
-    Set a state value from a single key in the cmd dict.
-
-    Required class attributes:
-
-      - cmd_trigger
-      - state_name
-      - cmd_key (can also be a tuple of keys)
-    """
-    abstract = True
-
-    def run(self):
-        state_names = (self.state_name if isinstance(self.state_name, (tuple, list))
-                       else (self.state_name,))
-
-        if isinstance(self.cmd_key, (tuple, list)):
-            values = tuple(self.cmd[key] for key in self.cmd_key)
-        else:
-            values = (self.cmd[self.cmd_key],)
-
-        if len(values) != len(state_names):
-            raise ValueError('length of values {} != length of state_names {}'
-                             .format(len(values), len(state_names)))
-
-        for state_name, value in izip(state_names, values):
-            setattr(self.SC, state_name, value)
-
-
-class FixedStateValueCmd(Cmd):
-    """
-    Base class for setting a single state value to something fixed.
-    These class attributes are required:
-
-      cmd_trigger = {}
-      state_name = None
-      state_value = None
-    """
-    abstract = True
-
-    def run(self):
-        setattr(self.SC, self.state_name, self.state_value)
-
-
-class SimTransCmd(StateValueCmd):
-    cmd_trigger = {'type': 'SIMTRANS'}
-    state_name = 'simpos'
-    cmd_key = 'pos'
-
-
-class SimFocusCmd(StateValueCmd):
-    cmd_trigger = {'type': 'SIMFOCUS'}
-    state_name = 'simfa_pos'
-    cmd_key = 'pos'
-
+from .base_cmd import Cmd, StateValueCmd, FixedStateValueCmd, Action, Check
 
 class TargQAttCmd(StateValueCmd):
     """
@@ -157,12 +24,6 @@ class TargQAttCmd(StateValueCmd):
                    'tlmsid': 'AOUPTARQ'}
     state_name = 'targ_q1', 'targ_q2', 'targ_q3', 'targ_q4'
     cmd_key = 'q1', 'q2', 'q3', 'q4'
-
-
-class ObsidCmd(StateValueCmd):
-    cmd_trigger = {'type': 'MP_OBSID', 'tlmsid': 'COAOSQID'}
-    state_name = 'obsid'
-    cmd_key = 'id'
 
 
 class DitherEnableCmd(FixedStateValueCmd):
@@ -318,3 +179,49 @@ class SetManeuverObsid(Action):
     """
     def run(self):
         self.SC.maneuver['final']['obsid'] = self.SC.obsid
+
+
+class AttitudeConsistentWithObsreqCheck(Check):
+    """
+    For science observations check that the expected target attitude
+    (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
+    the OR target attitude.
+    """
+    description = 'Science target attitude matches OR list for obsid'
+
+    def run(self):
+        SC = self.SC
+        obsid = SC.obsid
+
+        if SC.characteristics is None:
+            self.add_message('warning', 'no Characteristics provided')
+
+        elif SC.obsreqs is None:
+            self.add_message('warning', 'no OR list provided')
+
+        elif obsid not in SC.obsreqs:
+            self.add_message('error', 'obsid {} not in OR list'.format(obsid))
+
+        elif 'target_ra' not in SC.obsreqs[obsid]:
+            self.add_message('error', 'obsid {} does not have RA/Dec in OR'.format(obsid))
+
+        else:
+            obsreq = SC.obsreqs[obsid]
+
+            # Gather inputs for doing conversion from spacecraft target attitude
+            # to science target attitude
+            y_off, z_off = obsreq['target_offset_y'], obsreq['target_offset_z']
+            targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
+            pcad = Quat([SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4])
+            detector = SC.detector
+            si_align = SC.characteristics['odb_si_align'][detector]
+
+            q_targ = chandra_aca.calc_targ_from_aca(pcad, y_off, z_off, si_align)
+            cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
+
+            sep = targ.separation(cmd_targ)
+            if sep > 1. * u.arcsec:
+                message = ('science target attitude RA={:.5f} Dec={:.5f} different '
+                           'from OR list by {:.1f}'
+                           .format(q_targ.ra, q_targ.dec, sep.to('arcsec')))
+                self.add_message('error', message)

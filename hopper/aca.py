@@ -1,3 +1,7 @@
+"""
+Commands, actions, and checks for ACA
+"""
+
 import re
 from collections import defaultdict
 import logging
@@ -5,8 +9,7 @@ import logging
 import numpy as np
 from astropy.table import Table
 
-from .cmd_action import Cmd, Action
-from .check import Check
+from .base_cmd import Cmd, Action, Check
 
 logger = logging.getLogger('hopper')
 

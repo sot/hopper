@@ -8,7 +8,6 @@ import numpy as np
 
 import parse_cm
 import hopper
-import hopper.cmd_action
 
 root = os.path.dirname(__file__)
 

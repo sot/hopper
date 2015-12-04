@@ -17,7 +17,7 @@ from .utils import as_date
 logger = pyyaks.logger.get_logger(name='hopper', level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
-from .cmd_action import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
+from .base_cmd import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
 
 STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
           'targ_q1': 0.0, 'targ_q2': 0.0, 'targ_q3':0.0, 'targ_q4': 1.0,
@@ -67,17 +67,17 @@ class StateValue(object):
         SC.set_state_value(date, self.name, value)
 
 
-class SpacecraftStateMeta(type):
+class SpacecraftMeta(type):
     def __init__(cls, name, bases, dct):
-        super(SpacecraftStateMeta, cls).__init__(name, bases, dct)
+        super(SpacecraftMeta, cls).__init__(name, bases, dct)
 
         for name, val in dct.items():
             if isinstance(val, StateValue):
                 val.name = name
 
 
-class SpacecraftState(object):
-    __metaclass__ = SpacecraftStateMeta
+class Spacecraft(object):
+    __metaclass__ = SpacecraftMeta
 
     simpos = StateValue()
     simfa_pos = StateValue()
@@ -138,7 +138,7 @@ class SpacecraftState(object):
         Interpret the sequence of commands ``self.cmds``, triggering an action
         for relevant commands.
         """
-        # Make this (singleton) instance of SpacecraftState available to
+        # Make this (singleton) instance of Spacecraft available to
         # all the CmdActionBase child classes.  This is functionally equivalent to
         # making all the cmd_action instances "children" of self and passing
         # self as the parent.
@@ -171,7 +171,7 @@ class SpacecraftState(object):
                     and isinstance(cls_dict[attr1], StateValue)):
                 return cls_dict[attr1].values if (ending == 's') else cls_dict[attr1].dates
 
-        return super(SpacecraftState, self).__getattribute__(attr)
+        return super(Spacecraft, self).__getattribute__(attr)
 
     def add_cmd(self, **cmd):
         """
@@ -310,7 +310,7 @@ def run_cmds(backstop, or_list_file=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    SC = SpacecraftState(cmds, obsreqs, characteristics, initial_state)
+    SC = Spacecraft(cmds, obsreqs, characteristics, initial_state)
     SC.run()
 
     return SC

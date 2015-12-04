@@ -1,5 +1,4 @@
-from .spacecraft import run_cmds, logger, set_log_level, SpacecraftState
+from .spacecraft import run_cmds, logger, set_log_level
 
 # This registers various cmd, action and check classes
-from . import check
-from . import aca_check
+from . import aca, pcad, mech, misc
