@@ -104,3 +104,26 @@ def test_oct0515():
                                initial_state)
     assert ok
     return sc
+
+def test_dither_commanding():
+    backstop = """
+2015:287:00:00:00.000 |  7637432 0 | MP_DITHER        | TLMSID= AODITPAR, CMDS= 9, ANGP=  0.00000000e+00, ANGY=  0.00000000e+00, COEFP=  1.93899978e-05, COEFY=  3.87799955e-05, RATEP=  8.88178870e-03, RATEY=  6.28318917e-03, , SCS= 128, STEP= 622
+2015:288:00:00:00.000 |  7637436 0 | COMMAND_SW       | TLMSID= AOENDITH, HEX= 8034301, MSID= AOENDITH, SCS= 128, STEP= 632
+2015:289:00:00:00.000 |  7637436 0 | COMMAND_SW       | TLMSID= AODSDITH, HEX= 8034301, MSID= AODSDITH, SCS= 128, STEP= 632"""
+
+    sc = hopper.run_cmds(backstop)
+    sc.date = '2015:288:00:00:01.000'
+    assert sc.dither_enabled is True
+
+    allclose = lambda a, b: np.allclose(a, b, rtol=0, atol=0.01)
+    assert allclose(sc.dither_phase_pitch, 0.0)
+    assert allclose(sc.dither_phase_yaw, 0.0)
+    assert allclose(sc.dither_ampl_pitch, 4.0)  # arcsec
+    assert allclose(sc.dither_ampl_yaw, 8.0)
+    assert allclose(sc.dither_period_pitch, 707.423)  # seconds
+    assert allclose(sc.dither_period_yaw, 1000.0)
+
+    sc.date = '2015:289:00:00:01.000'
+    assert sc.dither_enabled is False
+
+    return sc

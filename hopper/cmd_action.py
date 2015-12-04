@@ -6,12 +6,12 @@ commands or doing checks.
 
 import re
 from itertools import izip
+import numpy as np
 
-import astropy.units as u
 import Chandra.Maneuver
 from cxotime import CxoTime
 
-from .utils import as_date, un_camel_case
+from .utils import un_camel_case
 
 CMD_ACTION_CLASSES = set()
 CHECK_CLASSES = {}
@@ -164,6 +164,38 @@ class ObsidCmd(StateValueCmd):
     state_name = 'obsid'
     cmd_key = 'id'
 
+
+class DitherEnableCmd(FixedStateValueCmd):
+    cmd_trigger = {'tlmsid': 'AOENDITH'}
+    state_name = 'dither_enabled'
+    state_value = True
+
+
+class DitherDisableCmd(FixedStateValueCmd):
+    cmd_trigger = {'tlmsid': 'AODSDITH'}
+    state_name = 'dither_enabled'
+    state_value = False
+
+
+class DitherParmsCmd(Cmd):
+    """
+    2015:278:02:08:30.051 |  4459839 0 | MP_DITHER        | TLMSID= AODITPAR, CMDS= 9,
+    ANGP=  0.00000000e+00, ANGY=  0.00000000e+00,
+    COEFP=  3.87799955e-05, COEFY=  3.87799955e-05,
+    RATEP=  8.88546929e-03, RATEY=  6.28318917e-03,
+    SCS= 128, STEP= 90
+    """
+    cmd_trigger = {'tlmsid': 'AODITPAR'}
+
+    def run(self):
+        SC = self.SC
+        cmd = self.cmd
+        SC.dither_phase_pitch = np.degrees(cmd['angp'])
+        SC.dither_phase_yaw = np.degrees(cmd['angy'])
+        SC.dither_ampl_pitch = np.degrees(cmd['coefp']) * 3600
+        SC.dither_ampl_yaw = np.degrees(cmd['coefy']) * 3600
+        SC.dither_period_pitch = 2 * np.pi / cmd['ratep']
+        SC.dither_period_yaw = 2 * np.pi / cmd['ratey']
 
 class ManeuverCmd(Cmd):
     cmd_trigger = {'tlmsid': 'AOMANUVR'}

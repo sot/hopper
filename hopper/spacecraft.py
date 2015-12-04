@@ -4,6 +4,8 @@ from __future__ import print_function, division, absolute_import
 
 from collections import OrderedDict
 from copy import copy
+import os
+
 import numpy as np
 
 import pyyaks.logger
@@ -24,7 +26,7 @@ STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
           'date': '1999:001:00:00:00.000'}
 
 class StateValue(object):
-    def __init__(self, name):
+    def __init__(self):
         self.clear()
 
     def clear(self):
@@ -94,6 +96,14 @@ class SpacecraftState(object):
     targ_q4 = StateValue()
     starcat = StateValue()
     stars = StateValue()
+    dither_enabled = StateValue()
+    dither_phase_pitch = StateValue()
+    dither_phase_yaw = StateValue()
+    dither_ampl_pitch = StateValue()
+    dither_ampl_yaw = StateValue()
+    dither_period_pitch = StateValue()
+    dither_period_yaw = StateValue()
+
 
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         class_dict = self.__class__.__dict__
@@ -285,9 +295,13 @@ def set_log_level(level):
         handler.setLevel(level)
 
 
-def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
+def run_cmds(backstop, or_list_file=None, ofls_characteristics_file=None,
              initial_state=None):
-    cmds = parse_cm.read_backstop_as_list(backstop_file)
+    if os.linesep in backstop:
+        lines = (line.strip() for line in backstop.splitlines())
+        backstop = [line for line in lines if line]
+
+    cmds = parse_cm.read_backstop_as_list(backstop)
     obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
