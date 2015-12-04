@@ -1,3 +1,6 @@
+# Possibly proprietary load products
+hopper/tests/OCT0515
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
