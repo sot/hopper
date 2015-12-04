@@ -4,7 +4,6 @@ from __future__ import print_function, division, absolute_import
 
 from collections import OrderedDict
 from copy import copy
-import os
 
 import numpy as np
 
@@ -12,7 +11,7 @@ import pyyaks.logger
 import parse_cm
 from Quaternion import Quat
 
-from .utils import as_date
+from .utils import as_date, get_backstop_cmds
 
 logger = pyyaks.logger.get_logger(name='hopper', level=pyyaks.logger.INFO,
                                   format="%(message)s")
@@ -23,7 +22,15 @@ STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
           'targ_q1': 0.0, 'targ_q2': 0.0, 'targ_q3':0.0, 'targ_q4': 1.0,
           'simpos': 0,
           'simfa_pos': 0,
-          'date': '1999:001:00:00:00.000'}
+          'date': '1999:001:00:00:00.000',
+          'dither_enabled': True,
+          'dither_phase_pitch': 0.0,
+          'dither_phase_yaw': 0.0,
+          'dither_ampl_pitch': 8.0,
+          'dither_ampl_yaw': 8.0,
+          'dither_period_pitch': 1000.0,
+          'dither_period_yaw': 707.1
+}
 
 class StateValue(object):
     def __init__(self):
@@ -104,13 +111,21 @@ class Spacecraft(object):
     dither_period_pitch = StateValue()
     dither_period_yaw = StateValue()
 
-
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+        # Make this (singleton) instance of Spacecraft available to
+        # all the CmdActionBase child classes.  This is functionally equivalent to
+        # making all the cmd_action instances "children" of self and passing
+        # self as the parent.
+        CmdActionCheck.SC = self
+
         class_dict = self.__class__.__dict__
 
         for attr in class_dict.values():
             if isinstance(attr, StateValue):
                 attr.clear()
+
+        if isinstance(cmds, basestring):
+            cmds = get_backstop_cmds(cmds)
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
@@ -138,12 +153,6 @@ class Spacecraft(object):
         Interpret the sequence of commands ``self.cmds``, triggering an action
         for relevant commands.
         """
-        # Make this (singleton) instance of Spacecraft available to
-        # all the CmdActionBase child classes.  This is functionally equivalent to
-        # making all the cmd_action instances "children" of self and passing
-        # self as the parent.
-        CmdActionCheck.SC = self
-
         self.cmd_actions = []
 
         # Run through load commands and do checks
@@ -155,6 +164,10 @@ class Spacecraft(object):
                     cmd_action = cmd_action_class(cmd)
                     cmd_action.run()
                     self.cmd_actions.append(cmd_action)
+
+        # Once all commands are assembled then make a numpy array of command dates.
+        # This is useful for finding commands by date later.
+        self.cmd_dates = np.array([cmd['date'] for cmd in self.cmds])
 
         # Sort the checks by date and then execute each one
         self.checks = sorted(self.checks, key=lambda x: x.date)
@@ -214,11 +227,11 @@ class Spacecraft(object):
         # different default length.
         self.add_cmd(action=action, date=as_date(date), **kwargs)
 
-    def add_check(self, name, date):
+    def add_check(self, name, date, **kwargs):
         """
         Add check ``name`` at ``date``
         """
-        self.checks.append(CHECK_CLASSES[name](as_date(date)))
+        self.checks.append(CHECK_CLASSES[name](as_date(date), **kwargs))
 
     def is_obs_req(self):
         """
@@ -295,13 +308,8 @@ def set_log_level(level):
         handler.setLevel(level)
 
 
-def run_cmds(backstop, or_list_file=None, ofls_characteristics_file=None,
+def run_cmds(cmds, or_list_file=None, ofls_characteristics_file=None,
              initial_state=None):
-    if os.linesep in backstop:
-        lines = (line.strip() for line in backstop.splitlines())
-        backstop = [line for line in lines if line]
-
-    cmds = parse_cm.read_backstop_as_list(backstop)
     obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
@@ -310,7 +318,7 @@ def run_cmds(backstop, or_list_file=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    SC = Spacecraft(cmds, obsreqs, characteristics, initial_state)
-    SC.run()
+    sc = Spacecraft(cmds, obsreqs, characteristics, initial_state)
+    sc.run()
 
-    return SC
+    return sc

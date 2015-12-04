@@ -1,5 +1,7 @@
 from itertools import izip
+import os
 
+import parse_cm
 from cxotime import CxoTime
 
 
@@ -32,3 +34,18 @@ def un_camel_case(cc_name):
     chars.append(c1.lower())
 
     return ''.join(chars)
+
+
+def get_backstop_cmds(content):
+    """
+    Thin wrapper around parse_cm.read_backstop_as_list which allows for
+    passing the backstop content as a single string.  This assumes it
+    will have at least one newline.
+
+    :param content: backstop content or file name (str)
+    """
+    if os.linesep in content:
+        lines = (line.strip() for line in content.splitlines())
+        content = [line for line in lines if line]
+
+    return parse_cm.read_backstop_as_list(content)

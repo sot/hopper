@@ -4,6 +4,7 @@ Commands, Actions, and checks for PCAD
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.table import Table
 import astropy.units as u
 
 import chandra_aca
@@ -11,7 +12,8 @@ from Quaternion import Quat
 import Chandra.Maneuver
 from cxotime import CxoTime
 
-from .base_cmd import Cmd, StateValueCmd, FixedStateValueCmd, Action, Check
+from .base_cmd import (Cmd, StateValueCmd, FixedStateValueCmd, Action, Check,
+                       CmdSequenceCheck)
 
 class TargQAttCmd(StateValueCmd):
     """
@@ -140,6 +142,12 @@ class AutoNpmWithStarCheckingAction(Action):
         SC.add_check('aca.mon_stars', npm_date)
         SC.add_check('aca.fid_lights', npm_date)
 
+        # Check dither parameters at a time when they will be at the final values
+        SC.add_check('standard_dither', npm_date + 8 * u.min)
+
+        # Add checks for dither disable / enable sequence if dither is large
+        SC.add_check('large_dither_cmd_sequence', npm_date + 8 * u.min)
+
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
     cmd_trigger = {'tlmsid': 'AONM2NPD'}
@@ -225,3 +233,52 @@ class AttitudeConsistentWithObsreqCheck(Check):
                            'from OR list by {:.1f}'
                            .format(q_targ.ra, q_targ.dec, sep.to('arcsec')))
                 self.add_message('error', message)
+
+
+class StandardDitherCheck(Check):
+    description = 'Dither parameters match one of the standard sets'
+
+    def run(self):
+        SC = self.SC
+        standards = Table(dict(dither_period_pitch=[1087.0, 1000.0],
+                               dither_period_yaw=[768.6, 707.1],
+                               dither_ampl_pitch=[20, 8],
+                               dither_ampl_yaw=[20, 8]))
+
+        for standard in standards:
+            if all(np.allclose(getattr(SC, name), standard[name], rtol=0.001)
+                   for name in standards.colnames):
+                break
+        else:
+            self.add_message('warning', 'non-standard dither amplitude or period')
+
+
+class LargeDitherCmdSequenceCheck(CmdSequenceCheck):
+    """Check dither amplitude.  If greater than 30" ("large") in either axis then
+    check that dither is disabled one minute before NPM start and enabled 5
+    minutes after NPM stars.  In this case the ``matches`` attribute will
+    contain the matching commands.  If not greater than 30" then the
+    ``not_applicable`` attribute will be True.
+
+    This action is scheduled at 8 minutes after NPM starts so that any initial
+    dither commanding is completed.  Base time is set to be the end of the
+    previous maneuver, aka NPM start.
+
+    """
+    cmd_sequence = [({'tlmsid': 'AODSDITH'}, -1 * u.min,  10 * u.s),
+                    ({'tlmsid': 'AOENDITH'}, 5 * u.min,  10 * u.s)]
+
+    def run(self):
+        if self.SC.dither_ampl_pitch < 30 and self.SC.dither_ampl_yaw < 30:
+            self.not_applicable = True
+            return
+        super(LargeDitherCmdSequenceCheck, self).run()
+
+    @property
+    def base_time(self):
+        """
+        Base time for this check is the end of the last maneuver (aka start of
+        NPM).  The ATS actually schedules things relative to 10 seconds BEFORE
+        the end of the maneuver.
+        """
+        return CxoTime(self.SC.maneuver['final']['date']) - 10 * u.s

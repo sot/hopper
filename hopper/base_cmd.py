@@ -6,6 +6,9 @@ commands or doing checks.
 
 import re
 from itertools import izip
+import numpy as np
+
+from cxotime import CxoTime
 
 from .utils import un_camel_case
 
@@ -134,6 +137,11 @@ class Check(CmdActionCheck):
     abstract = True
     type = 'check'
 
+    # True if criteria for running test not met but this is OK.  For example
+    # the large dither check is not_applicable if dither < 30 arcsec.  Not_applicable
+    # checks can be removed or ignored.
+    not_applicable = False
+
     def __init__(self, date):
         self.obsid = self.SC.obsid
         self.date = date
@@ -163,3 +171,63 @@ class Check(CmdActionCheck):
                .format(self.name, self.date, len(self.warnings), len(self.errors)))
         return out
 
+
+class CmdSequenceCheck(Check):
+    """
+    Check that commands occur within ``tolerance`` of the specified
+    delta time offsets from the base time.
+
+    Required class attribute::
+
+      cmds: list of tuples (cmd_match, time_offset, tolerance)
+
+    The tuple consists of::
+
+      cmd_match: dict of command params and values (e.g. tlmsid)
+      time_offset: time offset from ``date``
+      tolerance: tolerance on time_offset (quantity or TimeDelta)
+
+    Example::
+
+      cmd_sequence = [({'tlmsid': 'AODSDITH'}, -1 * u.min,  10 * u.s),
+                      ({'tlmsid': 'AOENDITH'}, 5 * u.min,  10 * u.s)]
+    """
+    abstract = True
+
+
+    def run(self):
+        self.matches = []
+        for cmd_match, time_offset, tolerance in self.cmd_sequence:
+            matches = self.match_cmd(cmd_match, time_offset, tolerance)
+            self.matches.extend(matches)
+
+    def match_cmd(self, cmd_match, time_offset, tolerance):
+        SC = self.SC
+        time = self.base_time + time_offset
+        min_date = (time - tolerance).date
+        max_date = (time + tolerance).date
+        i_min = np.searchsorted(SC.cmd_dates, min_date, side='left')
+        i_max = np.searchsorted(SC.cmd_dates, max_date, side='right') + 1
+
+        matches = []
+        for cmd in SC.cmds[i_min:i_max]:
+            if all(cmd.get(key) == val for key, val in cmd_match.items()):
+                matches.append(cmd)
+
+        n_match = len(matches)
+        if n_match != 1:
+            cmd_match_str = ' '.join('{}={}'.format(key, val)
+                                     for key, val in cmd_match.items())
+            if n_match == 0:
+                n_match = 'no'
+            message = ('{} matches for command {} within {} of {}'
+                       .format(n_match, cmd_match_str.upper(),
+                               tolerance, time))
+            category = 'error' if (len(matches) == 0) else 'warning'
+            self.add_message(category, message)
+
+        return matches
+
+    @property
+    def base_time(self):
+        return CxoTime(self.date)
