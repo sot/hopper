@@ -201,7 +201,7 @@ class NmmModeCmd(FixedStateValueCmd):
     state_value = 'NMAN'
 
 
-class NpntModeCmd(Cmd):
+class NpntModeCmd(FixedStateValueCmd):
     """
     Explicit AONPMODE command.  Most frequently NPM is entered by
     auto-transition from NMM (via AutoNmmNpmAction).
@@ -209,6 +209,10 @@ class NpntModeCmd(Cmd):
     cmd_trigger = {'tlmsid': 'AONPMODE'}
     state_name = 'pcad_mode'
     state_value = 'NPNT'
+
+#######################################################################
+# ACTIONS
+#######################################################################
 
 class AutoNmmNpmAction(Action):
     """

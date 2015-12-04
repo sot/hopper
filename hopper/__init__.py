@@ -1,3 +1,5 @@
 from .spacecraft import run_cmds, logger
 
-from . import check  # This registers Check classes
+# This registers various cmd, action and check classes
+from . import check
+from . import aca_check

@@ -79,6 +79,7 @@ class SpacecraftState(object):
     targ_q2 = StateValue('targ_q2')
     targ_q3 = StateValue('targ_q3')
     targ_q4 = StateValue('targ_q4')
+    starcat = StateValue('starcat')
 
     def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
         class_dict = self.__class__.__dict__
