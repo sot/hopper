@@ -46,7 +46,7 @@ class StarCatalogCmd(Cmd):
     def run(self):
         # Mappings from commanded (integer) value to canonical ACA checking
         # representations.
-        sizes = ('4x4', '6x6', '8x8');
+        sizes = ('4x4', '6x6', '8x8')
         mon_halfw = (10, 15, 20)
         types = ('ACQ', 'GUI', 'BOT', 'FID', 'MON')
 
@@ -95,9 +95,8 @@ class SetStars(Action):
         import agasc
 
         q_att = self.SC.q_att
-        stars = agasc.get_agasc_cone(q_att.ra, q_att.dec, radius=1.5, date=self.SC.date)
-        ok = stars['MAG_ACA'] < 13.0
-        self.SC.stars = stars[ok]
+        self.SC.stars = agasc.get_agasc_cone(q_att.ra, q_att.dec, radius=1.5,
+                                             date=self.SC.date)
         logger.debug('Got %d stars for obsid %d', len(self.SC.stars), self.SC.obsid)
 
 
