@@ -71,19 +71,28 @@ class StarCatalogCmd(Cmd):
                 continue
 
             row = dict(idx=idx,
+                       id=np.ma.masked,
                        size=sizes[par['imgsz']],
                        type=types[par['type']],
                        yang=np.degrees(par['yang']) * 3600,
-                       zang=np.degrees(par['zang']) * 3600)
+                       zang=np.degrees(par['zang']) * 3600,
+                       minmag=par['minmag'],
+                       mag=np.ma.masked,
+                       maxmag=par['maxmag'],
+                       dimdts=par['dimdts'],
+                       restrk=par['restrk'],
+                       )
             row['halfw'] = (mon_halfw[par['size']] if (row['type'] == 'MON')
                             else (40 - 35 * par['restrk']) * par['dimdts'] + 20.0)
             rows.append(row)
 
-        names = ('idx', 'type', 'size', 'yang', 'zang', 'halfw')
-        starcat = StarcatTable(rows, names=names)
+        names = ('idx', 'id', 'type', 'size', 'minmag', 'mag', 'maxmag',
+                 'yang', 'zang', 'dimdts', 'restrk', 'halfw')
+        starcat = StarcatTable(rows, names=names, masked=True)
         starcat['yang'].format = ".1f"
         starcat['zang'].format = ".1f"
         starcat['halfw'].format = ".0f"
+
         self.SC.starcat = starcat
 
 
@@ -93,35 +102,108 @@ class SetStars(Action):
     def run(self):
         # Expensive import so do this locally
         import agasc
+        import Ska.quatutil
 
         q_att = self.SC.q_att
-        self.SC.stars = agasc.get_agasc_cone(q_att.ra, q_att.dec, radius=1.5,
-                                             date=self.SC.date)
+        stars = agasc.get_agasc_cone(q_att.ra, q_att.dec, radius=1.5,
+                                     date=self.SC.date)
+
+        stars = Table(stars, names=[name.lower() for name in stars.colnames])
+        yang, zang = Ska.quatutil.radec2yagzag(stars['ra_pmcorr'], stars['dec_pmcorr'], q_att)
+        stars['yang'] = yang * 3600  # angle in arcsec
+        stars['zang'] = zang * 3600
+
+        self.SC.stars = stars
         logger.debug('Got %d stars for obsid %d', len(self.SC.stars), self.SC.obsid)
 
 
-class AcquisitionStarsCheck(Check):
+class IdentifyStarcat(Action):
+    """
+    Correlate stars and fid in the star catalog with the available field objects to determine
+    ID and other properties.  This applies a 1.5 arcsec radial distance matching threshold
+    as well as a requirement that the star is brighter than the catalog MAXMAG.
+    """
+
+    subsystems = ['aca']
+
+    def run(self):
+        print('HERE')
+        ids = []
+        sc = self.SC
+        stars = sc.stars
+
+        for cat in sc.starcat:
+            id_ = self.get_id(cat, stars)
+            ids.append(id_)
+
+        sc.starcat['id'] = ids
+
+    def get_id(self, cat, stars):
+        if cat['type'] == 'FID':
+            id_ = 0  # XXX FIX ME
+
+        else:
+            ok = stars['mag_aca'] < cat['maxmag']
+            sok = stars[ok]
+
+            r2 = (sok['yang'] - cat['yang']) ** 2 + (sok['zang'] - cat['zang']) ** 2
+            ok = r2 < 1.5 ** 2
+            sok = sok[ok]
+            r2 = r2[ok]
+
+            if len(sok) == 0:
+                id_ = np.ma.masked
+                if cat['type'] != 'MON':
+                    # Error
+                    pass
+            else:
+                # Take the nearest one
+                id_ = sok[np.argmin(r2)]['agasc_id']
+
+                if len(sok) > 1:
+                    # Warn
+                    pass
+        return id_
+
+
+class AcquisitionStars(Action):
+    """
+    Schedule checks related to acquisition stars
+    """
     subsystems = ['aca']
 
     def run(self):
         pass
 
 
-class GuideStarsCheck(Check):
+class GuideStars(Action):
+    """
+    Schedule checks related to guide stars
+    """
     subsystems = ['aca']
 
     def run(self):
         pass
 
 
-class MonStarsCheck(Check):
+class MonStars(Action):
+    """
+    Schedule checks related to monitor windows
+    """
     subsystems = ['aca']
 
     def run(self):
-        pass
+        sc = self.SC
+
+        # No action if there are no monitor windows
+        if len(sc.starcat.mons) == 0:
+            return
 
 
-class FidLightsCheck(Check):
+class FidLights(Check):
+    """
+    Schedule checks related to fid lights
+    """
     subsystems = ['aca']
 
     def run(self):

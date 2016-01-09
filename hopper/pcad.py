@@ -117,6 +117,7 @@ class NpntModeCmd(FixedStateValueCmd):
 # ACTIONS
 #######################################################################
 
+
 class AutoNpmWithStarCheckingAction(Action):
     """
     Get to NPNT by way of an automatic transition after a maneuver.  This
@@ -137,10 +138,11 @@ class AutoNpmWithStarCheckingAction(Action):
         SC.add_action('aca.set_stars', npm_date)
 
         # Check star catalog
-        SC.add_check('aca.acquisition_stars', npm_date)
-        SC.add_check('aca.guide_stars', npm_date)
-        SC.add_check('aca.mon_stars', npm_date)
-        SC.add_check('aca.fid_lights', npm_date)
+        SC.add_action('aca.identify_starcat', npm_date)
+        SC.add_action('aca.acquisition_stars', npm_date)
+        SC.add_action('aca.guide_stars', npm_date)
+        SC.add_action('aca.mon_stars', npm_date)
+        SC.add_action('aca.fid_lights', npm_date)
 
         # Check dither parameters at a time when they will be at the final values
         SC.add_check('standard_dither', npm_date + 8 * u.min)
