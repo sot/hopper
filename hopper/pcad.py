@@ -127,7 +127,7 @@ class AutoNpmWithStarCheckingAction(Action):
         SC = self.SC
         SC.pcad_mode = 'NPNT'
 
-        npm_date = CxoTime(self.cmd['date'])
+        npm_time = CxoTime(self.cmd['date'])
 
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
@@ -135,20 +135,20 @@ class AutoNpmWithStarCheckingAction(Action):
             SC.add_check('attitude_consistent_with_obsreq', date=self.cmd['date'])
 
         # Get the field stars that the ACA is viewing
-        SC.add_action('aca.set_stars', npm_date)
+        SC.add_action('aca.set_stars', npm_time)
 
         # Check star catalog
-        SC.add_action('aca.identify_starcat', npm_date)
-        SC.add_action('aca.acquisition_stars', npm_date)
-        SC.add_action('aca.guide_stars', npm_date)
-        SC.add_action('aca.mon_stars', npm_date)
-        SC.add_action('aca.fid_lights', npm_date)
+        SC.add_action('aca.identify_starcat', npm_time)
+        SC.add_action('aca.acquisition_stars', npm_time)
+        SC.add_action('aca.guide_stars', npm_time)
+        SC.add_action('aca.mon_stars', npm_time)
+        SC.add_action('aca.fid_lights', npm_time)
 
         # Check dither parameters at a time when they will be at the final values
-        SC.add_check('standard_dither', npm_date + 8 * u.min)
+        SC.add_check('standard_dither', npm_time + 8 * u.min)
 
         # Add checks for dither disable / enable sequence if dither is large
-        SC.add_check('large_dither_cmd_sequence', npm_date + 8 * u.min)
+        SC.add_check('large_dither_cmd_sequence', npm_time + 8 * u.min)
 
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
