@@ -300,12 +300,22 @@ class CheckObsreqTargetFromPcad(CmdAction):
             obsreq = SC.obsreqs[obsid]
 
             # Gather inputs for doing conversion from spacecraft target attitude
-            # to science target attitude
-            y_off, z_off = obsreq['target_offset_y'], obsreq['target_offset_z']
+            # to science target attitude.  Add in the dynamical offset attributes
+            # which are available for loads planned with Matlab tools 2016_210
+            # and later.  These pseudo-attributes must be injected by calling code.
+            y_off = obsreq['target_offset_y'] + obsreq.get('aca_offset_y', 0)
+            z_off = obsreq['target_offset_z'] + obsreq.get('aca_offset_z', 0)
             targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
             pcad = SC.targ_q_att
             detector = SC.detector
-            si_align = SC.characteristics['odb_si_align'][detector]
+
+            try:
+                si_align = SC.characteristics['si_align'][detector]
+            except KeyError:
+                # Products are planned using the Matlab tools SI align which matches the
+                # baseline mission align matrix from pre-November 2015.
+                from chandra_aca.transform import ODB_SI_ALIGN
+                si_align = ODB_SI_ALIGN
 
             q_targ = chandra_aca.calc_targ_from_aca(pcad, y_off, z_off, si_align)
             cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
@@ -427,19 +437,31 @@ class EnableNPMAutoTransition(FixedStateValueCmd):
     state_value = True
 
 
-
-def run_cmds(backstop_file, or_list_file=None, ofls_characteristics_file=None,
+def run_cmds(backstop_file, or_list=None, characteristics=None,
              initial_state=None):
-    cmds = parse_cm.read_backstop_as_list(backstop_file)
-    obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
-    if ofls_characteristics_file:
-        odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
-                                                     item='ODB_SI_ALIGN')
-        characteristics = {'odb_si_align': odb_si_align}
-    else:
-        characteristics = None
+    """
+    Run ``cmds`` from ``initial_state``.
 
-    SC.initialize(cmds, obsreqs, characteristics, initial_state)
+    :param or_list: OR list filename or OR-list object from read_or_list() or None
+    :param characteristics: characteristics filename or dict of characteristics or None
+    :param initial_state: initial state (dict)
+
+    :returns: Spacecraft object
+    """
+    cmds = parse_cm.read_backstop_as_list(backstop_file)
+
+    if isinstance(or_list, basestring):
+        or_list = parse_cm.read_or_list(or_list)
+
+    if characteristics is None:
+        characteristics = {}
+
+    elif isinstance(characteristics, basestring):
+        # This must be an OFLS characteristics file
+        odb_si_align = parse_cm.read_characteristics(characteristics, item='ODB_SI_ALIGN')
+        characteristics = {'si_align': odb_si_align}
+
+    SC.initialize(cmds, or_list, characteristics, initial_state)
 
     # Run through load commands and do checks
     for cmd in SC.iter_cmds():
