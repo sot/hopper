@@ -264,7 +264,7 @@ class CheckObsreqTargetFromPcad(CmdAction):
     """
     For science observations check that the expected target attitude
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
-    the OR target attitude.
+    the OR target attitude to within 1 arcsec.
     """
     cmd_trigger = {'tlmsid': 'check_obsreq_target_from_pcad'}
 
@@ -323,12 +323,14 @@ class CheckObsreqTargetFromPcad(CmdAction):
             sep = targ.separation(cmd_targ)
             if sep < 1. * u.arcsec:
                 ok = True
-                message = 'science target attitude matches OR list for obsid {}'.format(obsid)
+                message = ('science target attitude matches OR list'
+                           ' (separation={:.1f})'
+                           .format(sep.to('arcsec')))
             else:
                 ok = False
                 message = ('science target attitude RA={:.5f} Dec={:.5f} different '
-                           'from OR list for obsid {} by {:.1f}'
-                           .format(q_targ.ra, q_targ.dec, obsid, sep.to('arcsec')))
+                           'from OR list (separation={:.1f})'
+                           .format(q_targ.ra, q_targ.dec, sep.to('arcsec')))
             check.update({'ok': ok, 'message': message})
 
         SC.checks[obsid].append(check)
