@@ -1,3 +1,4 @@
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
 Definitions for command-action classes that interpret commands
 and perform subsequent actions which could include spawning new
