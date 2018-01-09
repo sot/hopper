@@ -69,9 +69,10 @@ class ManeuverCmd(Cmd):
         atts = Chandra.Maneuver.attitudes([SC.q1, SC.q2, SC.q3, SC.q4],
                                           [SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4],
                                           step=300, tstart=self.cmd['date'])
-        for time, q1, q2, q3, q4, pitch in atts:
-            SC.add_action('set_qatt', date=time, q1=q1, q2=q2, q3=q3, q4=q4)
-            SC.add_action('set_pitch', date=time, pitch=pitch)
+        for att in atts:
+            SC.add_action('set_qatt',
+                          date=att['time'], q1=att['q1'], q2=att['q2'], q3=att['q3'], q4=att['q4'])
+            SC.add_action('set_pitch', date=att['time'], pitch=att['pitch'])
 
         att0 = atts[0]
         att1 = atts[-1]
