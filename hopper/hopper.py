@@ -362,14 +362,14 @@ class StartManeuverCmd(CmdAction):
     def action(cls, cmd):
         atts = Chandra.Maneuver.attitudes(SC.q_att, SC.targ_q_att,
                                           step=300, tstart=cmd['date'])
-        for time, q1, q2, q3, q4, pitch in atts:
-            date = DateTime(time).date
+        for att in atts:
+            date = DateTime(att['time']).date
             SC.add_cmd({'date': date,
                         'tlmsid': 'update_q_att',
-                        'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4})
+                        'q1': att['q1'], 'q2': att['q2'], 'q3': att['q3'], 'q4': att['q4']})
             SC.add_cmd({'date': date,
                         'tlmsid': 'update_pitch',
-                        'pitch': pitch})
+                        'pitch': att['pitch']})
 
         att0 = atts[0]
         att1 = atts[-1]
