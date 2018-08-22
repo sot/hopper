@@ -1,5 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from itertools import izip
+
 import os
 
 import parse_cm
@@ -13,7 +13,7 @@ def as_date(time, quick=True):
     :param time: time-like input
     :param quick: assume a 21-character string is already in YDAY format
     """
-    if quick and isinstance(time, basestring) and len(time) == 21:
+    if quick and isinstance(time, str) and len(time) == 21:
         return time
     else:
         return CxoTime(time).yday
@@ -27,7 +27,7 @@ def un_camel_case(cc_name):
     :param cc_name: input camel-cased name
     """
     chars = []
-    for c0, c1 in izip(cc_name[:-1], cc_name[1:]):
+    for c0, c1 in zip(cc_name[:-1], cc_name[1:]):
         # Lower case followed by Upper case then insert "_"
         chars.append(c0.lower())
         if c0.lower() == c0 and c1.lower() != c1:
