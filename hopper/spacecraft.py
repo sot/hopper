@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
 """
-from __future__ import print_function, division, absolute_import
+
 
 from collections import OrderedDict
 from copy import copy
@@ -79,14 +79,12 @@ class SpacecraftMeta(type):
     def __init__(cls, name, bases, dct):
         super(SpacecraftMeta, cls).__init__(name, bases, dct)
 
-        for name, val in dct.items():
+        for name, val in list(dct.items()):
             if isinstance(val, StateValue):
                 val.name = name
 
 
-class Spacecraft(object):
-    __metaclass__ = SpacecraftMeta
-
+class Spacecraft(object, metaclass=SpacecraftMeta):
     simpos = StateValue()
     simfa_pos = StateValue()
     obsid = StateValue()
@@ -121,11 +119,11 @@ class Spacecraft(object):
 
         class_dict = self.__class__.__dict__
 
-        for attr in class_dict.values():
+        for attr in list(class_dict.values()):
             if isinstance(attr, StateValue):
                 attr.clear()
 
-        if isinstance(cmds, basestring):
+        if isinstance(cmds, str):
             cmds = get_backstop_cmds(cmds)
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
@@ -138,11 +136,11 @@ class Spacecraft(object):
         state0.update(initial_state or {})
 
         self.date = state0.pop('date')
-        self.states = [{attr: getattr(self, attr) for attr, val in class_dict.items()
+        self.states = [{attr: getattr(self, attr) for attr, val in list(class_dict.items())
                         if isinstance(val, StateValue)}]
         self.states[0]['date'] = self.date
 
-        for key, val in state0.items():
+        for key, val in list(state0.items()):
             if key in class_dict and isinstance(class_dict[key], StateValue):
                 setattr(self, key, val)
             else:
@@ -208,7 +206,7 @@ class Spacecraft(object):
         # could be improved, though in practice commands are often inserted
         # close to the original.
         cmds = self.cmds
-        for i_cmd in xrange(self.i_cmd + 1, len(cmds)):
+        for i_cmd in range(self.i_cmd + 1, len(cmds)):
             if cmd_date < cmds[i_cmd]['date']:
                 cmds.insert(i_cmd, cmd)
                 break
@@ -309,9 +307,14 @@ def set_log_level(level):
         handler.setLevel(level)
 
 
-def run_cmds(cmds, or_list_file=None, ofls_characteristics_file=None,
+def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
              initial_state=None):
-    obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
+    if or_list is None:
+        obsreqs = None
+    elif isinstance(or_list, list):
+        obsreqs = or_list
+    else:
+        obsreqs = parse_cm.read_or_list(or_list)
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
                                                      item='ODB_SI_ALIGN')
