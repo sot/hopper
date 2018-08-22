@@ -69,9 +69,10 @@ class ManeuverCmd(Cmd):
         atts = Chandra.Maneuver.attitudes([SC.q1, SC.q2, SC.q3, SC.q4],
                                           [SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4],
                                           step=300, tstart=self.cmd['date'])
-        for time, q1, q2, q3, q4, pitch in atts:
-            SC.add_action('set_qatt', date=time, q1=q1, q2=q2, q3=q3, q4=q4)
-            SC.add_action('set_pitch', date=time, pitch=pitch)
+        for att in atts:
+            SC.add_action('set_qatt',
+                          date=att['time'], q1=att['q1'], q2=att['q2'], q3=att['q3'], q4=att['q4'])
+            SC.add_action('set_pitch', date=att['time'], pitch=att['pitch'])
 
         att0 = atts[0]
         att1 = atts[-1]
@@ -204,10 +205,7 @@ class AttitudeConsistentWithObsreqCheck(Check):
         SC = self.SC
         obsid = SC.obsid
 
-        if SC.characteristics is None:
-            self.add_message('warning', 'no Characteristics provided')
-
-        elif SC.obsreqs is None:
+        if SC.obsreqs is None:
             self.add_message('warning', 'no OR list provided')
 
         elif obsid not in SC.obsreqs:
@@ -219,13 +217,24 @@ class AttitudeConsistentWithObsreqCheck(Check):
         else:
             obsreq = SC.obsreqs[obsid]
 
+
             # Gather inputs for doing conversion from spacecraft target attitude
-            # to science target attitude
-            y_off, z_off = obsreq['target_offset_y'], obsreq['target_offset_z']
+            # to science target attitude.  Add in the dynamical offset attributes
+            # which are available for loads planned with Matlab tools 2016_210
+            # and later.  These pseudo-attributes must be injected by calling code.
+            y_off = obsreq['target_offset_y'] + obsreq.get('aca_offset_y', 0)
+            z_off = obsreq['target_offset_z'] + obsreq.get('aca_offset_z', 0)
             targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
             pcad = Quat([SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4])
             detector = SC.detector
-            si_align = SC.characteristics['odb_si_align'][detector]
+
+            # Products are planned using the Matlab tools SI align which matches the
+            # baseline mission align matrix from pre-November 2015.
+            if SC.characteristics is None or 'si_align' not in SC.characteristics:
+                from chandra_aca.transform import ODB_SI_ALIGN
+                si_align = ODB_SI_ALIGN
+            else:
+                si_align = SC.characteristics['si_align'][detector]
 
             q_targ = chandra_aca.calc_targ_from_aca(pcad, y_off, z_off, si_align)
             cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
