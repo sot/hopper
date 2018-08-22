@@ -83,7 +83,7 @@ class StarCatalogCmd(Cmd):
                        dimdts=par['dimdts'],
                        restrk=par['restrk'],
                        )
-            row['halfw'] = (mon_halfw[par['size']] if (row['type'] == 'MON')
+            row['halfw'] = (mon_halfw[par['imgsz']] if (row['type'] == 'MON')
                             else (40 - 35 * par['restrk']) * par['dimdts'] + 20.0)
             rows.append(row)
 
