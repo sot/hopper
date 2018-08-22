@@ -128,7 +128,6 @@ class IdentifyStarcat(Action):
     subsystems = ['aca']
 
     def run(self):
-        print('HERE')
         ids = []
         sc = self.SC
         stars = sc.stars
