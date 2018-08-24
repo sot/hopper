@@ -72,13 +72,13 @@ class StarCatalogCmd(Cmd):
                 continue
 
             row = dict(idx=idx,
-                       id=np.ma.masked,
+                       id=-999,
                        size=sizes[par['imgsz']],
                        type=types[par['type']],
                        yang=np.degrees(par['yang']) * 3600,
                        zang=np.degrees(par['zang']) * 3600,
                        minmag=par['minmag'],
-                       mag=np.ma.masked,
+                       mag=-999.0,
                        maxmag=par['maxmag'],
                        dimdts=par['dimdts'],
                        restrk=par['restrk'],
@@ -90,6 +90,8 @@ class StarCatalogCmd(Cmd):
         names = ('idx', 'id', 'type', 'size', 'minmag', 'mag', 'maxmag',
                  'yang', 'zang', 'dimdts', 'restrk', 'halfw')
         starcat = StarcatTable(rows, names=names, masked=True)
+        starcat['id'] = np.ma.masked # Mask id and mag initially as they are defined later
+        starcat['mag'] = np.ma.masked
         starcat['yang'].format = ".1f"
         starcat['zang'].format = ".1f"
         starcat['halfw'].format = ".0f"
