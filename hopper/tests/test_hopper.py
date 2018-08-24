@@ -1,9 +1,9 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import print_function
+
 
 import os
 import glob
-from itertools import izip
+
 
 import pytest
 import numpy as np
@@ -75,7 +75,7 @@ def test_nov0512_as_planned():
 
     # Make sure maneuvers are consistent with OFLS maneuver summary file
     assert len(manvrs) == len(sc.maneuvers)
-    for manvr, sc_manvr in izip(manvrs, sc.maneuvers):
+    for manvr, sc_manvr in zip(manvrs, sc.maneuvers):
         for initfinal in ('initial', 'final'):
             for q in ('q1', 'q2', 'q3', 'q4'):
                 assert np.allclose(manvr[initfinal][q], sc_manvr[initfinal][q], atol=1e-7)
