@@ -79,7 +79,7 @@ class SpacecraftMeta(type):
     def __init__(cls, name, bases, dct):
         super(SpacecraftMeta, cls).__init__(name, bases, dct)
 
-        for name, val in list(dct.items()):
+        for name, val in dct.items():
             if isinstance(val, StateValue):
                 val.name = name
 
@@ -119,7 +119,7 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
 
         class_dict = self.__class__.__dict__
 
-        for attr in list(class_dict.values()):
+        for attr in class_dict.values():
             if isinstance(attr, StateValue):
                 attr.clear()
 
@@ -136,11 +136,11 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
         state0.update(initial_state or {})
 
         self.date = state0.pop('date')
-        self.states = [{attr: getattr(self, attr) for attr, val in list(class_dict.items())
+        self.states = [{attr: getattr(self, attr) for attr, val in class_dict.items()
                         if isinstance(val, StateValue)}]
         self.states[0]['date'] = self.date
 
-        for key, val in list(state0.items()):
+        for key, val in state0.items():
             if key in class_dict and isinstance(class_dict[key], StateValue):
                 setattr(self, key, val)
             else:
