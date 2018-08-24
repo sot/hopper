@@ -59,7 +59,7 @@ class CmdActionMeta(type):
             CMD_ACTION_CLASSES.add(cls)
 
 
-class CmdActionCheck(object, metaclass=CmdActionMeta):
+class CmdActionCheck(metaclass=CmdActionMeta):
     abstract = True
     subsystems = []
 
