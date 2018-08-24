@@ -3,3 +3,10 @@ from .spacecraft import run_cmds, logger, set_log_level, Spacecraft
 
 # This registers various cmd, action and check classes
 from . import aca, pcad, mech, misc
+
+def test(*args, **kwargs):
+     '''
+     Run py.test unit tests.
+     '''
+     import testr
+     return testr.test(*args, **kwargs)
