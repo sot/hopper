@@ -13,4 +13,5 @@ setup(name='hopper',
       version='0.1',
       zip_safe=False,
       packages=['hopper'],
+      cmdclass=cmdclass,
       )
