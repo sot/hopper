@@ -70,7 +70,11 @@ def test_nov0512_as_planned():
     """NOV0512 the way it really is.  This is how old loads with no characteristics will
     process when run through the checker."""
     ok, lines, sc = run_nov0512(with_characteristics=False)
-    assert ok
+    # hopper.pcad now uses the default ODB_SI_ALIGN if not supplied,
+    # so we get this warning from the edited 13781 either way
+    assert lines == ['13871 error: science target attitude RA=160.63125 Dec=5.04381 '
+                         'different from OR list by 3.6 arcsec']
+    assert not ok
 
     manvrs = parse_cm.read_maneuver_summary(os.path.join(root, 'NOV0512', 'manvr_summary'),
                                             structured=True)
