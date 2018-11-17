@@ -15,7 +15,9 @@ import hopper.base_cmd
 
 root = os.path.dirname(__file__)
 
-HAS_OCT0515 = os.path.exists(os.path.join(root, 'OCT0515'))
+# The ode directory seems to have gone missing from this SOT MP directory use in the test
+# so setting the exists() to look for that missing piece should skip the now-broken tests
+HAS_OCT0515 = os.path.exists(os.path.join(root, 'OCT0515', 'mps', 'ode'))
 
 def run_hopper(backstop_file, or_list_file=None,
                ofls_characteristics_file=None, initial_state=None):
