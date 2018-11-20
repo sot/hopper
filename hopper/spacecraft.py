@@ -236,7 +236,7 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
         """
         Is this an observation request (OR) obsid?  Can this test be better?
         """
-        return self.obsid < 40000
+        return self.obsid < 38000
 
     def set_state_value(self, date, name, value):
         """
