@@ -211,13 +211,13 @@ class CmdSequenceCheck(Check):
 
         matches = []
         for cmd in SC.cmds[i_min:i_max]:
-            if all(cmd.get(key) == val for key, val in list(cmd_match.items())):
+            if all(cmd.get(key) == val for key, val in cmd_match.items()):
                 matches.append(cmd)
 
         n_match = len(matches)
         if n_match != 1:
             cmd_match_str = ' '.join('{}={}'.format(key, val)
-                                     for key, val in list(cmd_match.items()))
+                                     for key, val in cmd_match.items())
             if n_match == 0:
                 n_match = 'no'
             message = ('{} matches for command {} within {} of {}'
