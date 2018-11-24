@@ -230,11 +230,11 @@ class AttitudeConsistentWithObsreqCheck(Check):
 
             # Products are planned using the Matlab tools SI align which matches the
             # baseline mission align matrix from pre-November 2015.
-            if SC.characteristics is None or 'si_align' not in SC.characteristics:
+            if SC.characteristics is None or 'odb_si_align' not in SC.characteristics:
                 from chandra_aca.transform import ODB_SI_ALIGN
                 si_align = ODB_SI_ALIGN
             else:
-                si_align = SC.characteristics['si_align'][detector]
+                si_align = SC.characteristics['odb_si_align'][detector]
 
             q_targ = chandra_aca.calc_targ_from_aca(pcad, y_off, z_off, si_align)
             cmd_targ = SkyCoord(q_targ.ra, q_targ.dec, unit='deg')
