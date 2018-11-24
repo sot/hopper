@@ -97,7 +97,11 @@ class ManeuverCmd(Cmd):
         # commands we take the most conservative approach and assume everything
         # happens immediately.
         if SC.auto_npm_transition:
-            SC.add_action('auto_npm_with_star_checking', time1)
+            if SC.starcheck:
+                SC.add_action('auto_npm', time1)
+            else:
+                SC.add_action('auto_npm_with_star_checking', time1)
+
 
 
 class NmmModeCmd(FixedStateValueCmd):
@@ -118,7 +122,6 @@ class NpntModeCmd(FixedStateValueCmd):
 #######################################################################
 # ACTIONS
 #######################################################################
-
 
 class AutoNpmWithStarCheckingAction(Action):
     """
@@ -151,6 +154,23 @@ class AutoNpmWithStarCheckingAction(Action):
 
         # Add checks for dither disable / enable sequence if dither is large
         SC.add_check('large_dither_cmd_sequence', npm_time + 8 * u.min)
+
+
+class AutoNpm(Action):
+    """
+    Get to NPNT by way of an automatic transition after a maneuver. Check that the
+    attitude there is consistent with the request.
+    """
+    def run(self):
+        SC = self.SC
+        SC.pcad_mode = 'NPNT'
+
+        npm_time = CxoTime(self.cmd['date'])
+
+        # For ORs check that the PCAD attitude corresponds to the OR target
+        # coordinates after appropriate align / offset transforms.
+        if SC.is_obs_req():
+            SC.add_check('attitude_consistent_with_obsreq', date=self.cmd['date'])
 
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):

@@ -110,7 +110,7 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
     dither_period_pitch = StateValue()
     dither_period_yaw = StateValue()
 
-    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None, starcheck=False):
         # Make this (singleton) instance of Spacecraft available to
         # all the CmdActionBase child classes.  This is functionally equivalent to
         # making all the cmd_action instances "children" of self and passing
@@ -128,6 +128,9 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
+        # If starcheck is True, and hopper was called from starcheck, run in a reduced mode that
+        # skips the star catalog checks (they are already being done independently in starcheck)
+        self.starcheck = starcheck
         self.checks = []
 
         # Make the initial spacecraft "state" dict from user-supplied values, with
@@ -308,7 +311,7 @@ def set_log_level(level):
 
 
 def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
-             initial_state=None):
+             initial_state=None, starcheck=False):
     if or_list is None:
         obsreqs = None
     elif isinstance(or_list, list):
@@ -322,7 +325,7 @@ def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    sc = Spacecraft(cmds, obsreqs, characteristics, initial_state)
+    sc = Spacecraft(cmds, obsreqs, characteristics, initial_state, starcheck)
     sc.run()
 
     return sc
