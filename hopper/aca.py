@@ -72,24 +72,26 @@ class StarCatalogCmd(Cmd):
                 continue
 
             row = dict(idx=idx,
-                       id=np.ma.masked,
+                       id=-999,
                        size=sizes[par['imgsz']],
                        type=types[par['type']],
                        yang=np.degrees(par['yang']) * 3600,
                        zang=np.degrees(par['zang']) * 3600,
                        minmag=par['minmag'],
-                       mag=np.ma.masked,
+                       mag=-999.0,
                        maxmag=par['maxmag'],
                        dimdts=par['dimdts'],
                        restrk=par['restrk'],
                        )
-            row['halfw'] = (mon_halfw[par['size']] if (row['type'] == 'MON')
+            row['halfw'] = (mon_halfw[par['imgsz']] if (row['type'] == 'MON')
                             else (40 - 35 * par['restrk']) * par['dimdts'] + 20.0)
             rows.append(row)
 
         names = ('idx', 'id', 'type', 'size', 'minmag', 'mag', 'maxmag',
                  'yang', 'zang', 'dimdts', 'restrk', 'halfw')
         starcat = StarcatTable(rows, names=names, masked=True)
+        starcat['id'] = np.ma.masked # Mask id and mag initially as they are defined later
+        starcat['mag'] = np.ma.masked
         starcat['yang'].format = ".1f"
         starcat['zang'].format = ".1f"
         starcat['halfw'].format = ".0f"
@@ -128,7 +130,6 @@ class IdentifyStarcat(Action):
     subsystems = ['aca']
 
     def run(self):
-        print('HERE')
         ids = []
         sc = self.SC
         stars = sc.stars

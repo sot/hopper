@@ -1,7 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """
 """
-from __future__ import print_function, division, absolute_import
+
 
 from collections import OrderedDict
 from copy import copy
@@ -84,9 +84,7 @@ class SpacecraftMeta(type):
                 val.name = name
 
 
-class Spacecraft(object):
-    __metaclass__ = SpacecraftMeta
-
+class Spacecraft(object, metaclass=SpacecraftMeta):
     simpos = StateValue()
     simfa_pos = StateValue()
     obsid = StateValue()
@@ -112,7 +110,7 @@ class Spacecraft(object):
     dither_period_pitch = StateValue()
     dither_period_yaw = StateValue()
 
-    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None):
+    def __init__(self, cmds, obsreqs=None, characteristics=None, initial_state=None, starcheck=False):
         # Make this (singleton) instance of Spacecraft available to
         # all the CmdActionBase child classes.  This is functionally equivalent to
         # making all the cmd_action instances "children" of self and passing
@@ -125,11 +123,14 @@ class Spacecraft(object):
             if isinstance(attr, StateValue):
                 attr.clear()
 
-        if isinstance(cmds, basestring):
+        if isinstance(cmds, str):
             cmds = get_backstop_cmds(cmds)
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
+        # If starcheck is True, and hopper was called from starcheck, run in a reduced mode that
+        # skips the star catalog checks (they are already being done independently in starcheck)
+        self.starcheck = starcheck
         self.checks = []
 
         # Make the initial spacecraft "state" dict from user-supplied values, with
@@ -208,7 +209,7 @@ class Spacecraft(object):
         # could be improved, though in practice commands are often inserted
         # close to the original.
         cmds = self.cmds
-        for i_cmd in xrange(self.i_cmd + 1, len(cmds)):
+        for i_cmd in range(self.i_cmd + 1, len(cmds)):
             if cmd_date < cmds[i_cmd]['date']:
                 cmds.insert(i_cmd, cmd)
                 break
@@ -238,7 +239,7 @@ class Spacecraft(object):
         """
         Is this an observation request (OR) obsid?  Can this test be better?
         """
-        return self.obsid < 40000
+        return self.obsid < 38000
 
     def set_state_value(self, date, name, value):
         """
@@ -309,9 +310,14 @@ def set_log_level(level):
         handler.setLevel(level)
 
 
-def run_cmds(cmds, or_list_file=None, ofls_characteristics_file=None,
-             initial_state=None):
-    obsreqs = parse_cm.read_or_list(or_list_file) if or_list_file else None
+def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
+             initial_state=None, starcheck=False):
+    if or_list is None:
+        obsreqs = None
+    elif isinstance(or_list, list):
+        obsreqs = or_list
+    else:
+        obsreqs = parse_cm.read_or_list(or_list)
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
                                                      item='ODB_SI_ALIGN')
@@ -319,7 +325,7 @@ def run_cmds(cmds, or_list_file=None, ofls_characteristics_file=None,
     else:
         characteristics = None
 
-    sc = Spacecraft(cmds, obsreqs, characteristics, initial_state)
+    sc = Spacecraft(cmds, obsreqs, characteristics, initial_state, starcheck)
     sc.run()
 
     return sc

@@ -6,7 +6,7 @@ commands or doing checks.
 """
 
 import re
-from itertools import izip
+
 import numpy as np
 
 from cxotime import CxoTime
@@ -59,8 +59,7 @@ class CmdActionMeta(type):
             CMD_ACTION_CLASSES.add(cls)
 
 
-class CmdActionCheck(object):
-    __metaclass__ = CmdActionMeta
+class CmdActionCheck(metaclass=CmdActionMeta):
     abstract = True
     subsystems = []
 
@@ -73,7 +72,7 @@ class CmdActionCheck(object):
     @classmethod
     def trigger(cls, cmd):
         ok = all(cmd.get(key) == val
-                 for key, val in cls.cmd_trigger.iteritems())
+                 for key, val in cls.cmd_trigger.items())
         return ok
 
     def run(self):
@@ -115,7 +114,7 @@ class StateValueCmd(Cmd):
             raise ValueError('length of values {} != length of state_names {}'
                              .format(len(values), len(state_names)))
 
-        for state_name, value in izip(state_names, values):
+        for state_name, value in zip(state_names, values):
             setattr(self.SC, state_name, value)
 
 
