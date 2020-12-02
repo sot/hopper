@@ -13,6 +13,7 @@ setup(name='hopper',
       use_scm_version=True,
       setup_requires=['setuptools_scm', 'setuptools_scm_git_archive'],
       zip_safe=False,
-      packages=['hopper'],
+      packages=['hopper', 'hopper.tests'],
+      tests_require=['pytest'],
       cmdclass=cmdclass,
       )
