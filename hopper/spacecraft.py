@@ -12,14 +12,13 @@ import parse_cm
 from Quaternion import Quat
 
 from .utils import as_date, get_backstop_cmds
+from .base_cmd import CMD_CLASSES, ACTION_CLASSES, CmdActionCheck
 
 logger = pyyaks.logger.get_logger(name='hopper', level=pyyaks.logger.INFO,
                                   format="%(message)s")
 
-from .base_cmd import CMD_ACTION_CLASSES, CHECK_CLASSES, CmdActionCheck
-
-STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
-          'targ_q1': 0.0, 'targ_q2': 0.0, 'targ_q3':0.0, 'targ_q4': 1.0,
+STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3': 0.0, 'q4': 1.0,
+          'targ_q1': 0.0, 'targ_q2': 0.0, 'targ_q3': 0.0, 'targ_q4': 1.0,
           'simpos': 0,
           'simfa_pos': 0,
           'date': '1999:001:00:00:00.000',
@@ -29,8 +28,8 @@ STATE0 = {'q1': 0.0, 'q2': 0.0, 'q3':0.0, 'q4': 1.0,
           'dither_ampl_pitch': 8.0,
           'dither_ampl_yaw': 8.0,
           'dither_period_pitch': 1000.0,
-          'dither_period_yaw': 707.1
-}
+          'dither_period_yaw': 707.1}
+
 
 class StateValue(object):
     def __init__(self):
@@ -129,7 +128,6 @@ class Spacecraft(object):
         self.cmds = cmds
         self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
         self.characteristics = characteristics
-        self.checks = []
 
         # Make the initial spacecraft "state" dict from user-supplied values, with
         # defaults provided by STATE0
@@ -154,34 +152,45 @@ class Spacecraft(object):
         for relevant commands.
         """
         self.cmd_actions = []
+        self.deferred_cmds = []
+        self.states_frozen = False
 
         # Run through load commands and do checks
-        for self.i_cmd, cmd in enumerate(self.cmds):
-            self.date = cmd['date']
+        for cmds in self.cmds, self.deferred_cmds:
+            # On the pass through deferred commands it is illegal to change any
+            # state values.
+            if cmds is self.deferred_cmds:
+                self.states_frozen = True
 
-            for cmd_action_class in CMD_ACTION_CLASSES:
-                if cmd_action_class.trigger(cmd):
-                    cmd_action = cmd_action_class(cmd)
-                    cmd_action.run()
-                    self.cmd_actions.append(cmd_action)
+            cmds = sorted(cmds, key=lambda x: x.date)
+
+            for self.i_cmd, cmd in enumerate(cmds):
+                self.date = cmd['date']
+
+                # If cmd is actually an action then no need for a linear search of
+                # possible triggers.
+                if 'action' in cmd:
+                    cmd_action_classes = [ACTION_CLASSES[cmd['action']]]
+                else:
+                    cmd_action_classes = CMD_CLASSES.values()
+
+                for cmd_action_class in cmd_action_classes:
+                    if cmd_action_class.trigger(cmd):
+                        cmd_action = cmd_action_class(cmd)
+                        cmd_action.run()
+                        self.cmd_actions.append(cmd_action)
 
         # Once all commands are assembled then make a numpy array of command dates.
         # This is useful for finding commands by date later.
         self.cmd_dates = np.array([cmd['date'] for cmd in self.cmds])
 
-        # Sort the checks by date and then execute each one
-        self.checks = sorted(self.checks, key=lambda x: x.date)
-        for check in self.checks:
-            self.date = check.date
-            check.run()
-
     def __getattr__(self, attr):
         cls_dict = self.__class__.__dict__
         for ending in ('s', '_dates'):
             attr1 = attr[:-len(ending)]
-            if (attr.endswith(ending)
-                    and attr1 in cls_dict
-                    and isinstance(cls_dict[attr1], StateValue)):
+            if (attr.endswith(ending) and
+                    attr1 in cls_dict and
+                    isinstance(cls_dict[attr1], StateValue)):
                 return cls_dict[attr1].values if (ending == 's') else cls_dict[attr1].dates
 
         return super(Spacecraft, self).__getattribute__(attr)
@@ -195,6 +204,13 @@ class Spacecraft(object):
         cmd_date = cmd['date']
 
         logger.debug('Adding command %s', cmd)
+
+        try:
+            if ACTION_CLASSES[cmd['action']].deferred:
+                self.deferred_cmds.append(cmd)
+                return
+        except KeyError:
+            pass
 
         # Prevent adding command before current command since the command
         # interpreter is a one-pass process.
@@ -226,12 +242,6 @@ class Spacecraft(object):
         # do that here and instead rely on other time formats having a
         # different default length.
         self.add_cmd(action=action, date=as_date(date), **kwargs)
-
-    def add_check(self, name, date, **kwargs):
-        """
-        Add check ``name`` at ``date``
-        """
-        self.checks.append(CHECK_CLASSES[name](as_date(date), **kwargs))
 
     def is_obs_req(self):
         """

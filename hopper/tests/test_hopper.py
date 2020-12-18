@@ -157,10 +157,10 @@ def test_cmd_sequence_check():
                         ({'tlmsid': 'FAKE3'}, 15 * u.s, 1.1 * u.s)]
 
     sc = hopper.Spacecraft(backstop)
-    sc.add_check('fake_cmd_sequence', '2015:001:00:00:05.000')
+    sc.add_action('fake_cmd_sequence', '2015:001:00:00:05.000')
     sc.run()
 
-    check = sc.checks[0]
+    check = sc.cmd_actions[-1]
     assert check.warnings == ['2 matches for command TLMSID=FAKE3 within '
                               '1.1 s of 2015:001:00:00:20.000']
     assert check.errors == ['no matches for command TLMSID=FAKE1 within '

@@ -12,8 +12,9 @@ from cxotime import CxoTime
 
 from .utils import un_camel_case
 
-CMD_ACTION_CLASSES = set()
-CHECK_CLASSES = {}
+ACTION_CLASSES = {}
+CMD_CLASSES = {}
+
 
 class CmdActionMeta(type):
     """Metaclass to register CmdAction classes and auto-generate ``name`` and
@@ -43,19 +44,10 @@ class CmdActionMeta(type):
         name = re.sub(r'(Check|Action|Cmd)$', '', name)
         cls.name = '.'.join(cls.subsystems + [un_camel_case(name)])
 
-        # Auto-generate command trigger for actions
         if cls.type == 'action':
-            cls.cmd_trigger = {'action': cls.name}
-
-        # Checks are captured by name in a dict instead of a list.  This is
-        # because checks are processed separately after the main run of commands
-        # and therefore they can simply be looked up instead of requiring a
-        # linear search.
-        if cls.type == 'check':
-            CHECK_CLASSES[cls.name] = cls
-
+            ACTION_CLASSES[cls.name] = cls
         else:
-            CMD_ACTION_CLASSES.add(cls)
+            CMD_CLASSES[cls.name] = cls
 
 
 class CmdActionCheck(object):
@@ -87,6 +79,43 @@ class Cmd(CmdActionCheck):
 class Action(CmdActionCheck):
     abstract = True
     type = 'action'
+    deferred = False
+
+    def __init__(self, date):
+        self.obsid = self.SC.obsid
+        self.date = date
+        self.messages = []
+
+    def trigger(self, cmd):
+        """
+        By default an action is always triggered.  But this is sometimes overridden,
+        e.g. large dither check.
+        """
+        return True
+
+    def add_message(self, category, text):
+        self.messages.append({'category': category, 'text': text})
+
+    @property
+    def warnings(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'warning']
+
+    @property
+    def errors(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'error']
+
+    @property
+    def infos(self):
+        return [msg['text'] for msg in self.messages if msg['category'] == 'info']
+
+    @property
+    def success(self):
+        return len(self.errors) == 0
+
+    def __repr__(self):
+        out = ('<{} at {} warnings={} errors={}>'
+               .format(self.name, self.date, len(self.warnings), len(self.errors)))
+        return out
 
 
 class StateValueCmd(Cmd):
@@ -133,46 +162,7 @@ class FixedStateValueCmd(Cmd):
         setattr(self.SC, self.state_name, self.state_value)
 
 
-class Check(CmdActionCheck):
-    abstract = True
-    type = 'check'
-
-    # True if criteria for running test not met but this is OK.  For example
-    # the large dither check is not_applicable if dither < 30 arcsec.  Not_applicable
-    # checks can be removed or ignored.
-    not_applicable = False
-
-    def __init__(self, date):
-        self.obsid = self.SC.obsid
-        self.date = date
-        self.messages = []
-
-    def add_message(self, category, text):
-        self.messages.append({'category': category, 'text': text})
-
-    @property
-    def warnings(self):
-        return [msg['text'] for msg in self.messages if msg['category'] == 'warning']
-
-    @property
-    def errors(self):
-        return [msg['text'] for msg in self.messages if msg['category'] == 'error']
-
-    @property
-    def infos(self):
-        return [msg['text'] for msg in self.messages if msg['category'] == 'info']
-
-    @property
-    def success(self):
-        return len(self.errors) == 0
-
-    def __repr__(self):
-        out = ('<{} at {} warnings={} errors={}>'
-               .format(self.name, self.date, len(self.warnings), len(self.errors)))
-        return out
-
-
-class CmdSequenceCheck(Check):
+class CmdSequenceCheck(Action):
     """
     Check that commands occur within ``tolerance`` of the specified
     delta time offsets from the base time.
@@ -193,7 +183,7 @@ class CmdSequenceCheck(Check):
                       ({'tlmsid': 'AOENDITH'}, 5 * u.min,  10 * u.s)]
     """
     abstract = True
-
+    deferred = True
 
     def run(self):
         self.matches = []

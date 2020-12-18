@@ -15,6 +15,7 @@ from cxotime import CxoTime
 from .base_cmd import (Cmd, StateValueCmd, FixedStateValueCmd, Action, Check,
                        CmdSequenceCheck)
 
+
 class TargQAttCmd(StateValueCmd):
     """
     2009:033:01:18:19.704 |  8221758 0 | MP_TARGQUAT
@@ -132,7 +133,7 @@ class AutoNpmWithStarCheckingAction(Action):
         # For ORs check that the PCAD attitude corresponds to the OR target
         # coordinates after appropriate align / offset transforms.
         if SC.is_obs_req():
-            SC.add_check('attitude_consistent_with_obsreq', date=self.cmd['date'])
+            SC.add_action('attitude_consistent_with_obsreq', date=self.cmd['date'])
 
         # Get the field stars that the ACA is viewing
         SC.add_action('aca.set_stars', npm_time)
@@ -145,10 +146,10 @@ class AutoNpmWithStarCheckingAction(Action):
         SC.add_action('aca.fid_lights', npm_time)
 
         # Check dither parameters at a time when they will be at the final values
-        SC.add_check('standard_dither', npm_time + 8 * u.min)
+        SC.add_action('standard_dither', npm_time + 8 * u.min)
 
         # Add checks for dither disable / enable sequence if dither is large
-        SC.add_check('large_dither_cmd_sequence', npm_time + 8 * u.min)
+        SC.add_action('large_dither_cmd_sequence', npm_time + 8 * u.min)
 
 
 class DisableNPMAutoTransitionCmd(FixedStateValueCmd):
@@ -191,13 +192,14 @@ class SetManeuverObsid(Action):
         self.SC.maneuver['final']['obsid'] = self.SC.obsid
 
 
-class AttitudeConsistentWithObsreqCheck(Check):
+class AttitudeConsistentWithObsreqCheck(Action):
     """
     For science observations check that the expected target attitude
     (derived from the current TARG_Q_ATT and OR Y,Z offset) matches
     the OR target attitude.
     """
     description = 'Science target attitude matches OR list for obsid'
+    deferred = True
 
     def run(self):
         SC = self.SC
