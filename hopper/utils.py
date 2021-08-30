@@ -45,8 +45,8 @@ def get_backstop_cmds(content):
 
     :param content: backstop content or file name (str)
     """
-    if os.linesep in content:
-        lines = (line.strip() for line in content.splitlines())
-        content = [line for line in lines if line]
+    lines = content.splitlines()
+    if len(lines) > 1:
+        content = [line_strip for line in lines if (line_strip := line.strip())]
 
     return parse_cm.read_backstop_as_list(content)
