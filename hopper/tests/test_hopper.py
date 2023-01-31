@@ -86,7 +86,6 @@ def test_nov0512_as_planned():
             for q in ('q1', 'q2', 'q3', 'q4'):
                 assert np.allclose(manvr[initfinal][q], sc_manvr[initfinal][q], atol=1e-7)
 
-    return sc
 
 @pytest.mark.skipif('not HAS_OCT0515')
 def test_oct0515():
@@ -112,7 +111,7 @@ def test_oct0515():
                                glob.glob(ofls_characteristics_file)[0],
                                initial_state)
     assert ok
-    return sc
+
 
 def test_dither_commanding():
     backstop = """
@@ -134,8 +133,6 @@ def test_dither_commanding():
 
     sc.date = '2015:289:00:00:01.000'
     assert sc.dither_enabled is False
-
-    return sc
 
 
 def test_cmd_sequence_check():
@@ -159,7 +156,6 @@ def test_cmd_sequence_check():
                               '1.1 s of 2015:001:00:00:20.000']
     assert check.errors == ['no matches for command TLMSID=FAKE1 within '
                             '1.1 s of 2015:001:00:00:09.000']
-    return sc
 
 
 def test_large_dither():
@@ -198,5 +194,3 @@ def test_large_dither():
     assert checks[0].warnings == checks[0].errors == []
     assert checks[1].warnings == ['non-standard dither amplitude or period']
     assert checks[1].errors == []
-
-    return sc
