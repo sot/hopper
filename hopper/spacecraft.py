@@ -317,7 +317,7 @@ def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
     elif isinstance(or_list, dict):
         obsreqs = or_list
     else:
-        obsreqs, comments = parse_cm.read_or_list_full(or_list)
+        obsreqs, _ = parse_cm.read_or_list_full(or_list)
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
                                                      item='ODB_SI_ALIGN')
