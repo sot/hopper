@@ -314,7 +314,7 @@ def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
              initial_state=None, starcheck=False):
     if or_list is None:
         obsreqs = None
-    elif isinstance(or_list, list):
+    elif isinstance(or_list, dict):
         obsreqs = or_list
     else:
         obsreqs, comments = parse_cm.read_or_list_full(or_list)
