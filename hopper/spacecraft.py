@@ -126,7 +126,7 @@ class Spacecraft(object, metaclass=SpacecraftMeta):
         if isinstance(cmds, str):
             cmds = get_backstop_cmds(cmds)
         self.cmds = cmds
-        self.obsreqs = {obsreq['obsid']: obsreq for obsreq in obsreqs} if obsreqs else None
+        self.obsreqs = obsreqs if obsreqs else None
         self.characteristics = characteristics
         # If starcheck is True, and hopper was called from starcheck, run in a reduced mode that
         # skips the star catalog checks (they are already being done independently in starcheck)
@@ -317,7 +317,7 @@ def run_cmds(cmds, or_list=None, ofls_characteristics_file=None,
     elif isinstance(or_list, list):
         obsreqs = or_list
     else:
-        obsreqs = parse_cm.read_or_list(or_list)
+        obsreqs, comments = parse_cm.read_or_list_full(or_list)
     if ofls_characteristics_file:
         odb_si_align = parse_cm.read_characteristics(ofls_characteristics_file,
                                                      item='ODB_SI_ALIGN')
