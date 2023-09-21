@@ -15,9 +15,6 @@ import hopper.base_cmd
 
 root = os.path.dirname(__file__)
 
-# The ode directory seems to have gone missing from this SOT MP directory use in the test
-# so setting the exists() to look for that missing piece should skip the now-broken tests
-HAS_OCT0515 = os.path.exists(os.path.join(root, 'OCT0515', 'mps', 'ode'))
 
 def run_hopper(backstop_file, or_list_file=None,
                ofls_characteristics_file=None, initial_state=None):
@@ -85,32 +82,6 @@ def test_nov0512_as_planned():
         for initfinal in ('initial', 'final'):
             for q in ('q1', 'q2', 'q3', 'q4'):
                 assert np.allclose(manvr[initfinal][q], sc_manvr[initfinal][q], atol=1e-7)
-
-
-@pytest.mark.skipif('not HAS_OCT0515')
-def test_oct0515():
-    """
-    More recent loads (not in version control)
-    """
-    root = os.path.dirname(__file__)
-    or_list_file = os.path.join(root, 'OCT0515', '*.or')
-    backstop_file = os.path.join(root, 'OCT0515', '*.backstop')
-    ofls_characteristics_file = os.path.join(root, 'OCT0515', 'mps', 'ode', 'characteristics',
-                                             'CHARACTERIS*')
-
-    initial_state = {'q1': -6.48322909e-01,
-                     'q2':6.38847453e-02,
-                     'q3':-5.54412345e-01,
-                     'q4':5.17902594e-01,
-                     'simpos': 75624,
-                     'simfa_pos': -468,
-                     'date': '2015-10-13 00:00:00'}
-
-    ok, lines, sc = run_hopper(glob.glob(backstop_file)[0],
-                               glob.glob(or_list_file)[0],
-                               glob.glob(ofls_characteristics_file)[0],
-                               initial_state)
-    assert ok
 
 
 def test_dither_commanding():
