@@ -231,7 +231,7 @@ class AttitudeConsistentWithObsreqCheck(Check):
         elif obsid not in SC.obsreqs:
             self.add_message('error', 'obsid {} not in OR list'.format(obsid))
 
-        elif 'target_ra' not in SC.obsreqs[obsid]:
+        elif 'target' not in SC.obsreqs[obsid]:
             self.add_message('error', 'obsid {} does not have RA/Dec in OR'.format(obsid))
 
         else:
@@ -242,9 +242,9 @@ class AttitudeConsistentWithObsreqCheck(Check):
             # to science target attitude.  Add in the dynamical offset attributes
             # which are available for loads planned with Matlab tools 2016_210
             # and later.  These pseudo-attributes must be injected by calling code.
-            y_off = obsreq['target_offset_y'] + obsreq.get('aca_offset_y', 0)
-            z_off = obsreq['target_offset_z'] + obsreq.get('aca_offset_z', 0)
-            targ = SkyCoord(obsreq['target_ra'], obsreq['target_dec'], unit='deg')
+            y_off = obsreq['target_offset']['y_offset'] + obsreq.get('aca_offset_y', 0)
+            z_off = obsreq['target_offset']['z_offset'] + obsreq.get('aca_offset_z', 0)
+            targ = SkyCoord(obsreq['target']['ra'], obsreq['target']['dec'], unit='deg')
             pcad = Quat([SC.targ_q1, SC.targ_q2, SC.targ_q3, SC.targ_q4])
             detector = SC.detector
 
